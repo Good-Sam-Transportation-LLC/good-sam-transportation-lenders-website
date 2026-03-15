@@ -209,13 +209,13 @@ Scroll-triggered animations use `viewport: { once: true, margin: "-60px" }` — 
 
 ### CSS Variables (`src/index.css`)
 
-All colors are HSL CSS variables. Key ones:
+Core palette colors are HSL CSS variables. Key ones include:
 - `--background`: dark blue-gray `220 20% 4%`
 - `--foreground`: near-white `210 40% 96%`
 - `--primary` / `--primary-foreground`
 - `--gold`: `43 72% 52%` (golden accent)
 - `--surface`: slightly lighter than background
-
+- Glass/shadow tokens (e.g., `--glass-bg`, `--glass-border`, `--shadow-card`) use `rgba(...)` for alpha-blended effects.
 ### Utility Classes
 
 Defined in `src/index.css` — use these instead of repeating utility combinations:
