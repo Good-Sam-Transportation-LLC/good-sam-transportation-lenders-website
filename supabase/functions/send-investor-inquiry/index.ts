@@ -69,10 +69,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Enforce origin allowlist for browser clients: reject any POST that does not carry an
-  // allowed Origin header. This is a CORS control, not a security boundary, and is
-  // complemented by the API key check below when configured.
-  if (!("Access-Control-Allow-Origin" in corsHeaders)) {
+  // Enforce origin allowlist for browser clients: reject any POST that carries a non-empty
+  // Origin header that is not in the allowlist. This is a CORS control, not a security
+  // boundary, and is complemented by the API key check below when configured. Requests
+  // without an Origin header (e.g., server-to-server) are allowed to proceed to API key
+  // validation.
+  if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
