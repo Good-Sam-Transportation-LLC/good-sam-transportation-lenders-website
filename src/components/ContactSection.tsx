@@ -58,7 +58,7 @@ const ContactSection = () => {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="firm" className="text-xs text-muted-foreground">Firm / Institution</Label>
                 <Input id="firm" name="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" />
