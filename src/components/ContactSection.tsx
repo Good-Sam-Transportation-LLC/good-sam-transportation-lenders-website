@@ -50,7 +50,7 @@ const ContactSection = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="name" className="text-xs text-muted-foreground">Full Name</Label>
-                <Input id="name" name="fullName" required placeholder="Jane Smith" className="mt-1 bg-secondary border-border" />
+                <Input id="name" name="full_name" required placeholder="Jane Smith" className="mt-1 bg-secondary border-border" />
               </div>
               <div>
                 <Label htmlFor="email" className="text-xs text-muted-foreground">Email</Label>
@@ -58,7 +58,7 @@ const ContactSection = () => {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <Label htmlFor="firm" className="text-xs text-muted-foreground">Firm / Institution</Label>
                 <Input id="firm" name="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" />
@@ -66,6 +66,15 @@ const ContactSection = () => {
               <div>
                 <Label htmlFor="role" className="text-xs text-muted-foreground">Title</Label>
                 <Input id="role" name="role" placeholder="Managing Partner" className="mt-1 bg-secondary border-border" />
+              </div>
+              <div>
+                <Label htmlFor="investment_interest" className="text-xs text-muted-foreground">Investment Interest</Label>
+                <Input
+                  id="investment_interest"
+                  name="investment_interest"
+                  placeholder="e.g. Equity, Debt, Co-investment"
+                  className="mt-1 bg-secondary border-border"
+                />
               </div>
             </div>
 
