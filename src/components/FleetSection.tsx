@@ -1,95 +1,76 @@
 import { motion } from "framer-motion";
-import { fadeUp, staggerContainer } from "@/lib/motion";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Shield, Wrench, Clock, Star } from "lucide-react";
+import { fadeUpProps } from "@/lib/motion";
 
-const fleet = [
-  {
-    vehicle: "Cadillac Escalade ESV",
-    year: 2023,
-    type: "Full-Size Luxury SUV",
-    value: "$72,000",
-    utilization: "94%",
-    revenueMonth: "$6,200",
-  },
-  {
-    vehicle: "Mercedes-Benz S 580",
-    year: 2024,
-    type: "Executive Sedan",
-    value: "$68,000",
-    utilization: "91%",
-    revenueMonth: "$5,800",
-  },
-  {
-    vehicle: "Lincoln Navigator",
-    year: 2023,
-    type: "Premium SUV",
-    value: "$45,000",
-    utilization: "88%",
-    revenueMonth: "$4,700",
-  },
+const vehicles = [
+  { name: "Cadillac Escalade ESV", year: "2023", value: "$95,000", status: "Active", utilization: "91%" },
+  { name: "Mercedes-Benz S-Class", year: "2024", value: "$115,000", status: "Active", utilization: "87%" },
+  { name: "Lincoln Navigator L", year: "2023", value: "$85,000", status: "Active", utilization: "83%" },
+];
+
+const protocols = [
+  { icon: Wrench, label: "Preventive maintenance every 5,000 mi" },
+  { icon: Shield, label: "Full commercial insurance coverage" },
+  { icon: Clock, label: "24/7 roadside assistance" },
+  { icon: Star, label: "Interior detail after every trip" },
 ];
 
 const FleetSection = () => (
-  <section id="fleet" className="border-b border-border py-24">
-    <div className="container">
-      <motion.div
-        variants={staggerContainer}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        className="mx-auto max-w-5xl"
-      >
-        <motion.p variants={fadeUp} className="mb-2 text-xs font-medium uppercase tracking-widest text-primary">
-          Fleet & Assets
-        </motion.p>
-        <motion.h2 variants={fadeUp} className="mb-4 text-3xl md:text-5xl">
-          Asset-Backed Cash Flow
-        </motion.h2>
-        <motion.p variants={fadeUp} className="mb-12 max-w-2xl text-muted-foreground">
-          Every dollar of revenue is backed by depreciating but high-value physical assets,
-          providing downside protection for lenders and tangible collateral.
-        </motion.p>
+  <section id="fleet" className="border-t border-border py-24">
+    <div className="section-container">
+      <motion.p {...fadeUpProps()} className="data-mono text-xs uppercase tracking-[0.2em] text-gold">Fleet & Operations</motion.p>
+      <motion.h2 {...fadeUpProps(0.05)} className="mt-3 max-w-xl text-3xl font-semibold text-foreground md:text-4xl">Premium Assets, Institutional Standards</motion.h2>
+      <motion.p {...fadeUpProps(0.1)} className="mt-4 max-w-2xl text-muted-foreground">
+        Every vehicle is a depreciating asset managed like an appreciating one — through rigorous maintenance, high utilization, and premium positioning.
+      </motion.p>
 
-        <motion.div variants={fadeUp} className="rounded-lg border border-border bg-card overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-primary">Vehicle</TableHead>
-                <TableHead className="text-primary">Year</TableHead>
-                <TableHead className="text-primary hidden md:table-cell">Class</TableHead>
-                <TableHead className="text-primary text-right">Value</TableHead>
-                <TableHead className="text-primary text-right hidden sm:table-cell">Utilization</TableHead>
-                <TableHead className="text-primary text-right">Rev/mo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fleet.map((v) => (
-                <TableRow key={v.vehicle} className="border-border">
-                  <TableCell className="font-medium text-foreground">{v.vehicle}</TableCell>
-                  <TableCell className="font-mono-data text-muted-foreground">{v.year}</TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell">{v.type}</TableCell>
-                  <TableCell className="font-mono-data text-right text-foreground">{v.value}</TableCell>
-                  <TableCell className="font-mono-data text-right text-foreground hidden sm:table-cell">{v.utilization}</TableCell>
-                  <TableCell className="font-mono-data text-right text-primary">{v.revenueMonth}</TableCell>
-                </TableRow>
+      <motion.div {...fadeUpProps(0.15)} className="glass-card mt-12 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <caption className="sr-only">
+              Overview of premium fleet vehicles with year, asset value, utilization, and operational status.
+            </caption>
+            <thead>
+              <tr className="border-b border-border text-left">
+                {["Vehicle", "Year", "Asset Value", "Utilization", "Status"].map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="data-mono px-6 py-4 text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {vehicles.map((v) => (
+                <tr key={v.name} className="border-b border-border/50 last:border-0">
+                  <th scope="row" className="px-6 py-4 font-medium text-foreground">{v.name}</th>
+                  <td className="data-mono px-6 py-4 text-muted-foreground">{v.year}</td>
+                  <td className="data-mono px-6 py-4 text-foreground">{v.value}</td>
+                  <td className="data-mono px-6 py-4 text-gold">{v.utilization}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                      {v.status}
+                    </span>
+                  </td>
+                </tr>
               ))}
-              <TableRow className="border-border bg-secondary/30">
-                <TableCell className="font-semibold text-foreground" colSpan={3}>Total Fleet Valuation</TableCell>
-                <TableCell className="font-mono-data text-right font-semibold text-primary">$185,000</TableCell>
-                <TableCell className="font-mono-data text-right font-semibold text-foreground hidden sm:table-cell">92%</TableCell>
-                <TableCell className="font-mono-data text-right font-semibold text-primary">$16,700</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </motion.div>
+            </tbody>
+          </table>
+        </div>
       </motion.div>
+
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {protocols.map((p, i) => (
+          <motion.div key={p.label} {...fadeUpProps(0.2 + i * 0.05)} className="flex items-center gap-3 rounded-lg bg-secondary px-4 py-3">
+            <p.icon className="h-4 w-4 shrink-0 text-gold" />
+            <span className="text-xs text-muted-foreground">{p.label}</span>
+          </motion.div>
+        ))}
+      </div>
     </div>
   </section>
 );

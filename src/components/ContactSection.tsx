@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { fadeUp, staggerContainer } from "@/lib/motion";
 import { Input } from "@/components/ui/input";
@@ -7,22 +7,46 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Send, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 const ContactSection = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const form = e.target as HTMLFormElement;
+    const data = new FormData(form);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.functions.invoke("send-investor-inquiry", {
+        body: {
+          full_name: data.get("full_name") as string,
+          email: data.get("email") as string,
+          firm: (data.get("firm") as string) || null,
+          investment_interest: data.get("investment_interest") as string,
+          message: (data.get("message") as string) || null,
+        },
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Inquiry Received",
         description: "Our investor relations team will respond within 24 hours.",
       });
-      (e.target as HTMLFormElement).reset();
-    }, 1200);
+      form.reset();
+    } catch {
+      toast({
+        title: "Submission Failed",
+        description: "Something went wrong. Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,7 +55,7 @@ const ContactSection = () => {
         <motion.div
           variants={staggerContainer}
           initial="hidden"
-          whileInView="visible"
+          whileInView="show"
           viewport={{ once: true, amount: 0.3 }}
           className="mx-auto max-w-3xl"
         >
@@ -50,28 +74,42 @@ const ContactSection = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="name" className="text-xs text-muted-foreground">Full Name</Label>
-                <Input id="name" required placeholder="Jane Smith" className="mt-1 bg-secondary border-border" />
+                <Input id="name" name="full_name" required placeholder="Jane Smith" className="mt-1 bg-secondary border-border" maxLength={200} />
               </div>
               <div>
                 <Label htmlFor="email" className="text-xs text-muted-foreground">Email</Label>
-                <Input id="email" type="email" required placeholder="jane@capitalfirm.com" className="mt-1 bg-secondary border-border" />
+                <Input id="email" name="email" type="email" required placeholder="jane@capitalfirm.com" className="mt-1 bg-secondary border-border" maxLength={320} />
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="firm" className="text-xs text-muted-foreground">Firm / Institution</Label>
-                <Input id="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" />
+                <Input id="firm" name="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" maxLength={200} />
               </div>
               <div>
-                <Label htmlFor="role" className="text-xs text-muted-foreground">Title</Label>
-                <Input id="role" placeholder="Managing Partner" className="mt-1 bg-secondary border-border" />
+                <Label htmlFor="investment_interest" className="text-xs text-muted-foreground">Investment Interest</Label>
+                <Input
+                  id="investment_interest"
+                  name="investment_interest"
+                  placeholder="e.g. Equity, Debt, Co-investment"
+                  className="mt-1 bg-secondary border-border"
+                  required
+                  maxLength={200}
+                />
               </div>
             </div>
 
             <div>
               <Label htmlFor="message" className="text-xs text-muted-foreground">Message</Label>
-              <Textarea id="message" rows={4} placeholder="Tell us about your investment interest..." className="mt-1 bg-secondary border-border" />
+              <Textarea
+                id="message"
+                name="message"
+                rows={4}
+                placeholder="Tell us about your investment interest..."
+                className="mt-1 bg-secondary border-border"
+                maxLength={2000}
+              />
             </div>
 
             <div className="space-y-3">

@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { fadeIn } from "@/lib/motion";
+import { useState, type MouseEvent } from "react";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
@@ -14,48 +12,124 @@ const navLinks = [
 const SiteHeader = () => {
   const [open, setOpen] = useState(false);
 
+  const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href || href[0] !== "#") {
+      return;
+    }
+
+    // Special-case the "#top" anchor to scroll to the very top of the page.
+    if (href === "#top" && typeof window !== "undefined") {
+      event.preventDefault();
+
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      window.scrollTo({
+        top: 0,
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+
+      try {
+        window.history.replaceState(null, "", href);
+      } catch {
+        window.location.hash = href;
+      }
+
+      setOpen(false);
+      return;
+    }
+
+    const targetId = href.slice(1);
+    const targetElement =
+      typeof document !== "undefined" ? document.getElementById(targetId) : null;
+
+    if (targetElement && typeof window !== "undefined") {
+      event.preventDefault();
+
+      // Use a constant offset equal to the fixed header height (e.g., Tailwind h-16 = 64px)
+      const headerOffset = 64;
+      const rect = targetElement.getBoundingClientRect();
+      const scrollTop = window.scrollY + rect.top - headerOffset;
+
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      window.scrollTo({
+        top: scrollTop,
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+
+      try {
+        window.history.replaceState(null, "", href);
+      } catch {
+        window.location.hash = href;
+      }
+    }
+
+    setOpen(false);
+  };
+
   return (
-    <motion.header
-      variants={fadeIn}
-      initial="hidden"
-      animate="visible"
-      className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl"
+    <header
+      id="top"
+      className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg"
     >
-      <div className="container flex h-16 items-center justify-between">
-        <a href="#" className="font-serif text-xl tracking-wide text-foreground">
-          Good Sam <span className="text-primary">Transportation</span>
+      <div className="section-container flex h-16 items-center justify-between">
+        <a
+          href="#top"
+          onClick={(event) => handleNavClick(event, "#top")}
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
+          GOOD SAM<span className="text-gold">.</span>
         </a>
 
+        {/* Desktop */}
         <nav className="hidden items-center gap-8 md:flex">
           {navLinks.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              onClick={(event) => handleNavClick(event, l.href)}
+              className="text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
             >
               {l.label}
             </a>
           ))}
           <a
             href="#contact"
-            className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            onClick={(event) => handleNavClick(event, "#contact")}
+            className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:brightness-110"
           >
             Request Pitch Deck
           </a>
         </nav>
 
-        <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
-          {open ? <X size={20} /> : <Menu size={20} />}
+        {/* Mobile toggle */}
+        <button
+          type="button"
+          className="text-foreground md:hidden"
+          onClick={() => setOpen(!open)}
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
+      {/* Mobile menu */}
       {open && (
-        <div className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden">
+        <div
+          id="mobile-menu"
+          className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden"
+        >
           {navLinks.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              onClick={() => setOpen(false)}
+              onClick={(event) => handleNavClick(event, l.href)}
               className="block py-2 text-sm text-muted-foreground"
             >
               {l.label}
@@ -63,14 +137,14 @@ const SiteHeader = () => {
           ))}
           <a
             href="#contact"
-            onClick={() => setOpen(false)}
+            onClick={(event) => handleNavClick(event, "#contact")}
             className="mt-3 block rounded-sm bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground"
           >
             Request Pitch Deck
           </a>
         </div>
       )}
-    </motion.header>
+    </header>
   );
 };
 
