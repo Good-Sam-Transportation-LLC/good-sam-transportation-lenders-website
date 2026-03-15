@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { fadeUp, staggerContainer } from "@/lib/motion";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ const ContactSection = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
@@ -50,28 +50,28 @@ const ContactSection = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="name" className="text-xs text-muted-foreground">Full Name</Label>
-                <Input id="name" required placeholder="Jane Smith" className="mt-1 bg-secondary border-border" />
+                <Input id="name" name="fullName" required placeholder="Jane Smith" className="mt-1 bg-secondary border-border" />
               </div>
               <div>
                 <Label htmlFor="email" className="text-xs text-muted-foreground">Email</Label>
-                <Input id="email" type="email" required placeholder="jane@capitalfirm.com" className="mt-1 bg-secondary border-border" />
+                <Input id="email" name="email" type="email" required placeholder="jane@capitalfirm.com" className="mt-1 bg-secondary border-border" />
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="firm" className="text-xs text-muted-foreground">Firm / Institution</Label>
-                <Input id="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" />
+                <Input id="firm" name="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" />
               </div>
               <div>
                 <Label htmlFor="role" className="text-xs text-muted-foreground">Title</Label>
-                <Input id="role" placeholder="Managing Partner" className="mt-1 bg-secondary border-border" />
+                <Input id="role" name="role" placeholder="Managing Partner" className="mt-1 bg-secondary border-border" />
               </div>
             </div>
 
             <div>
               <Label htmlFor="message" className="text-xs text-muted-foreground">Message</Label>
-              <Textarea id="message" rows={4} placeholder="Tell us about your investment interest..." className="mt-1 bg-secondary border-border" />
+              <Textarea id="message" name="message" rows={4} placeholder="Tell us about your investment interest..." className="mt-1 bg-secondary border-border" />
             </div>
 
             <div className="space-y-3">
