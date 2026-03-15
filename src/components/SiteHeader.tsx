@@ -58,7 +58,7 @@ const SiteHeader = () => {
 
         {/* Desktop */}
         <nav className="hidden items-center gap-8 md:flex">
-          {links.map((l) => (
+          {navLinks.map((l) => (
             <a
               key={l.href}
               href={l.href}
@@ -95,7 +95,7 @@ const SiteHeader = () => {
           id="mobile-menu"
           className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden"
         >
-          {links.map((l) => (
+          {navLinks.map((l) => (
             <a
               key={l.label}
               href={l.href}
