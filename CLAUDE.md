@@ -308,3 +308,39 @@ Existing components include: Button, Card, Dialog, Form, Input, Select, Tabs, Ta
   - `Add fleet section with vehicle table`
 - **Main branch**: `main`
 - **Feature branches**: Descriptive names off `main`
+
+---
+
+## Mandatory Testing & Quality Rules
+
+**CRITICAL: These rules MUST be followed for every change.**
+
+### Always Write Tests
+- Every new component MUST have a corresponding test file in `__tests__/` next to the source
+- Every new hook MUST have tests in `src/hooks/__tests__/`
+- Every new utility function MUST have tests in `src/lib/__tests__/`
+- Every new page MUST have tests in `src/pages/__tests__/`
+- Test files follow the pattern: `ComponentName.test.tsx` or `hook-name.test.ts`
+- Use `renderWithProviders` from `src/test/test-utils.tsx` for components needing providers
+- Mock Framer Motion using the Proxy pattern established in existing tests
+- Mock Recharts components when testing chart sections
+
+### Always Verify Linting
+- Run `npm run lint` after making changes — zero new errors allowed
+- If adding new code patterns, consider whether new ESLint rules should be added to `eslint.config.js`
+- Test any new ESLint rules by adding test cases to `src/test/eslint-rules.test.ts`
+
+### Always Verify Build
+- Run `npm run build` to confirm production build succeeds
+- If changing build configuration, update tests in `src/test/build-config.test.ts`
+- If changing CI workflows, update tests in `src/test/ci-pipeline.test.ts`
+
+### CI Pipeline Tests
+- Any new GitHub Actions workflow MUST have corresponding tests in `src/test/`
+- Any modification to `.github/workflows/ci.yml` MUST be reflected in `src/test/ci-pipeline.test.ts`
+
+### Test Execution Checklist
+Before finishing any task, run:
+1. `npm test` — all unit tests pass
+2. `npm run lint` — no new lint errors
+3. `npm run typecheck` — no type errors

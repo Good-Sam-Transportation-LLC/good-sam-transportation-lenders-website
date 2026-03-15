@@ -38,13 +38,13 @@ describe("Workflow file structure", () => {
     expect(ci.on.pull_request.branches).toContain("main");
   });
 
-  it("defines exactly three jobs", () => {
-    expect(Object.keys(ci.jobs).length).toBe(3);
+  it("defines exactly four jobs", () => {
+    expect(Object.keys(ci.jobs).length).toBe(4);
   });
 
-  it("defines the expected job IDs: lint-and-typecheck, test, build", () => {
+  it("defines the expected job IDs: lint-and-typecheck, test, security, build", () => {
     const jobIds = new Set(Object.keys(ci.jobs));
-    const expected = new Set(["lint-and-typecheck", "test", "build"]);
+    const expected = new Set(["lint-and-typecheck", "test", "security", "build"]);
     expect(jobIds).toEqual(expected);
   });
 });
@@ -61,11 +61,16 @@ describe("Job dependency graph and execution order", () => {
     expect(ci.jobs["test"].needs).toBeUndefined();
   });
 
-  it("build job depends on both lint-and-typecheck and test", () => {
+  it("security job has no dependencies", () => {
+    expect(ci.jobs["security"].needs).toBeUndefined();
+  });
+
+  it("build job depends on lint-and-typecheck, test, and security", () => {
     const needs = ci.jobs["build"].needs;
-    expect(needs).toHaveLength(2);
+    expect(needs).toHaveLength(3);
     expect(needs).toContain("lint-and-typecheck");
     expect(needs).toContain("test");
+    expect(needs).toContain("security");
   });
 
   it("all jobs run on ubuntu-latest", () => {
@@ -255,5 +260,19 @@ describe("Artifact configuration and CI stage coverage", () => {
     expect(combined).toContain("npm test");
     expect(combined).toContain("npm run build");
     expect(combined).toContain("npm run test:build");
+  });
+
+  it("CI pipeline includes security audit step", () => {
+    const allRuns: string[] = [];
+    for (const jobKey of Object.keys(ci.jobs)) {
+      const job = ci.jobs[jobKey];
+      for (const step of job.steps) {
+        if (step.run) {
+          allRuns.push(step.run);
+        }
+      }
+    }
+    const combined = allRuns.join("\n");
+    expect(combined).toContain("npm audit");
   });
 });
