@@ -44,13 +44,18 @@ const SiteHeader = () => {
           </a>
         </nav>
 
-        <button className="md:hidden text-foreground" onClick={() => setOpen(!open)}>
+        <button
+          className="md:hidden text-foreground"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
+        >
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
 
       {open && (
-        <div className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden">
+        <div id="mobile-nav" role="navigation" className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden">
           {navLinks.map((l) => (
             <a
               key={l.href}

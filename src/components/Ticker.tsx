@@ -11,14 +11,19 @@ const metrics = [
 
 const Ticker = () => (
   <section className="overflow-hidden border-y border-border bg-secondary/30 py-3">
-    <div className="animate-ticker flex w-max gap-12">
+    <div className="animate-ticker flex w-max gap-12" aria-hidden="true">
       {[...metrics, ...metrics].map((m, i) => (
         <span key={i} className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
-          <span className="h-1 w-1 rounded-full bg-primary" />
+          <span className="h-1 w-1 rounded-full bg-primary" aria-hidden="true" />
           <span className="font-mono-data">{m}</span>
         </span>
       ))}
     </div>
+    <ul className="sr-only">
+      {metrics.map((m) => (
+        <li key={m}>{m}</li>
+      ))}
+    </ul>
   </section>
 );
 
