@@ -122,6 +122,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ticker-scroll {
+    animation: none !important;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
