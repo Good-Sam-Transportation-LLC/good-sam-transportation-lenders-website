@@ -19,7 +19,7 @@ const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 const CLIENT_ERROR_CODES = new Set(["23514", "23502", "22001", "23505"]);
 
 const CORS_ALLOWED_HEADERS =
-  "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version";
+  "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-investor-inquiry-secret";
 
 const CORS_ALLOWED_METHODS = "POST, OPTIONS";
 const CORS_VARY_HEADER_VALUE = "Origin";
@@ -30,6 +30,9 @@ const ALLOWED_ORIGINS = allowedOriginsEnv
   .split(",")
   .map((o) => o.trim())
   .filter((o) => o.length > 0);
+
+const INVESTOR_INQUIRY_API_SECRET =
+  Deno.env.get("INVESTOR_INQUIRY_API_SECRET") ?? "";
 
 if (!allowedOriginsEnv) {
   console.error(
@@ -127,14 +130,27 @@ Deno.serve(async (req) => {
 
   // Enforce origin allowlist for browser clients: reject any POST that carries a non-empty
   // Origin header that is not in the allowlist. This is a CORS control, not a security
-  // boundary, and is complemented by the API key check below when configured. Requests
-  // without an Origin header (e.g., server-to-server) are allowed to proceed to API key
-  // validation.
+  // boundary, and is complemented by the optional shared-secret check below when configured.
+  // Requests without an Origin header (e.g., server-to-server) are allowed to proceed to
+  // shared-secret validation.
   if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Optional shared-secret authentication: when INVESTOR_INQUIRY_API_SECRET is configured,
+  // require callers to present the matching secret in the x-investor-inquiry-secret header.
+  if (INVESTOR_INQUIRY_API_SECRET) {
+    const providedSecret =
+      req.headers.get("x-investor-inquiry-secret") ?? "";
+    if (providedSecret !== INVESTOR_INQUIRY_API_SECRET) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   }
 
   try {
