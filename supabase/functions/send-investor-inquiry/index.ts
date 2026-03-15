@@ -3,6 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 // Basic but stricter-than-includes("@") email validation to align with DB constraint
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Max length constants aligned with DB schema:
+// - full_name and firm: VARCHAR(200)
+// - email: VARCHAR(320)
+// - message: VARCHAR(2000)
+const MAX_NAME_OR_FIRM_LENGTH = 200;
+const MAX_EMAIL_LENGTH = 320;
+const MAX_MESSAGE_LENGTH = 2000;
+
 function getCorsHeaders(origin: string): HeadersInit {
   const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
   const allowedOrigins = allowedOriginsEnv
@@ -115,14 +123,14 @@ Deno.serve(async (req) => {
 
     // Length validation aligned with DB constraints:
     // full_name/firm up to 200, email up to 320, message up to 2000
-    if (normalizedFullName.length > 200) {
+    if (normalizedFullName.length > MAX_NAME_OR_FIRM_LENGTH) {
       return new Response(JSON.stringify({ error: "Full name exceeds maximum length" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (normalizedFirm && normalizedFirm.length > 200) {
+    if (normalizedFirm && normalizedFirm.length > MAX_NAME_OR_FIRM_LENGTH) {
       return new Response(JSON.stringify({ error: "Firm exceeds maximum length" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
