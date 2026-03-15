@@ -9,6 +9,8 @@ const navLinks = [
   { label: "Contact", href: "#contact" },
 ];
 
+const FIXED_HEADER_HEIGHT = 64;
+
 const SiteHeader = () => {
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
@@ -23,7 +25,7 @@ const SiteHeader = () => {
     const targetId = href.slice(1);
     const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
 
-    const headerOffset = headerRef.current?.offsetHeight ?? 0;
+    const headerOffset = FIXED_HEADER_HEIGHT;
 
     if (targetElement && typeof window !== "undefined") {
       const rect = targetElement.getBoundingClientRect();
