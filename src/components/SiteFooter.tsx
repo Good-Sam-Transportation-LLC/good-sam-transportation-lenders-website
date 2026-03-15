@@ -1,17 +1,17 @@
 const SiteFooter = () => (
-  <footer className="border-t border-border py-12">
-    <div className="section-container flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-      <div>
-        <p className="text-sm font-semibold text-foreground">
-          GOOD SAM<span className="text-gold">.</span>
+  <footer className="py-12">
+    <div className="container">
+      <div className="flex flex-col items-center justify-between gap-4 text-xs text-muted-foreground md:flex-row">
+        <p className="font-serif text-sm text-foreground">
+          Good Sam <span className="text-primary">Transportation</span>
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Premium Transportation — Investor Relations
-        </p>
+        <p>© {new Date().getFullYear()} Good Sam Transportation. All rights reserved.</p>
+        <div className="flex gap-4">
+          <a href="#" className="hover:text-primary transition-colors">Privacy</a>
+          <a href="#" className="hover:text-primary transition-colors">Terms</a>
+          <a href="#" className="hover:text-primary transition-colors">SEC Disclosures</a>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Good Sam Transportation. All rights reserved.
-      </p>
     </div>
   </footer>
 );

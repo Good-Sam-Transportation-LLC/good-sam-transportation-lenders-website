@@ -1,63 +1,95 @@
 import { motion } from "framer-motion";
-import { fadeUp, ease } from "@/lib/motion";
+import { fadeUp, staggerContainer } from "@/lib/motion";
+import { CheckCircle } from "lucide-react";
 
-const fundBreakdown = [
-  { label: "Fleet Expansion", pct: 70, detail: "2-3 new premium vehicles" },
-  { label: "Operations & Technology", pct: 20, detail: "Dispatch systems, hiring" },
-  { label: "Marketing & BD", pct: 10, detail: "Corporate client acquisition" },
+const allocations = [
+  { label: "Fleet Expansion (4–5 vehicles)", pct: 70, amount: "$350K" },
+  { label: "Technology & Platform", pct: 20, amount: "$100K" },
+  { label: "Marketing & Client Acquisition", pct: 10, amount: "$50K" },
 ];
 
-const riskMitigators = [
-  "Hard asset collateral — vehicles retain 60-70% residual value",
-  "Proven revenue model with 3+ years operating history",
-  "Diversified client base across corporate and VIP segments",
-  "Low fixed overhead with variable cost structure",
-  "Experienced operator with deep industry relationships",
+const highlights = [
+  "14-month average vehicle payback period",
+  "All vehicles serve as loan collateral (asset-backed)",
+  "Revenue scales linearly with each vehicle added",
+  "Existing operational playbook reduces execution risk",
+  "85% client retention provides predictable cash flow",
+  "No technology or R&D risk — proven business model",
 ];
 
 const InvestmentSection = () => (
-  <section id="investment" className="border-t border-border py-24">
-    <div className="section-container">
-      <motion.p {...fadeUp()} className="data-mono text-xs uppercase tracking-[0.2em] text-gold">The Investment Opportunity</motion.p>
-      <motion.h2 {...fadeUp(0.05)} className="mt-3 max-w-xl text-3xl font-semibold text-foreground md:text-4xl">Capital Deployed, Returns Multiplied</motion.h2>
+  <section id="investment" className="border-b border-border py-24">
+    <div className="container">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        className="mx-auto max-w-5xl"
+      >
+        <motion.p variants={fadeUp} className="mb-2 text-xs font-medium uppercase tracking-widest text-primary">
+          Investment Opportunity
+        </motion.p>
+        <motion.h2 variants={fadeUp} className="mb-4 text-3xl md:text-5xl">
+          $500K Capital Deployment
+        </motion.h2>
+        <motion.p variants={fadeUp} className="mb-16 max-w-2xl text-muted-foreground">
+          Seeking debt or equity financing to triple fleet capacity. Every dollar deployed maps
+          directly to revenue-generating assets with a clear, measurable ROI.
+        </motion.p>
 
-      <div className="mt-12 grid gap-8 lg:grid-cols-2">
-        <motion.div {...fadeUp(0.1)} className="glass-card-gold p-6 md:p-8">
-          <h3 className="text-sm font-semibold text-foreground">Proposed Use of Funds</h3>
-          <div className="mt-6 space-y-5">
-            {fundBreakdown.map((item) => (
-              <div key={item.label}>
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-foreground">{item.label}</span>
-                  <span className="data-mono text-sm font-semibold text-gold">{item.pct}%</span>
+        <div className="grid gap-12 lg:grid-cols-2">
+          {/* Allocation */}
+          <motion.div variants={fadeUp} className="rounded-lg border border-border bg-card p-6">
+            <h3 className="mb-6 text-xl text-foreground">Capital Allocation</h3>
+            <div className="space-y-5">
+              {allocations.map((a) => (
+                <div key={a.label}>
+                  <div className="mb-1.5 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{a.label}</span>
+                    <span className="font-mono-data font-medium text-foreground">{a.amount}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${a.pct}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-right text-xs text-muted-foreground">{a.pct}%</p>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-                  <motion.div
-                    className="h-full rounded-full bg-gold"
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${item.pct}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, ease, delay: 0.3 }}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+              ))}
+            </div>
+          </motion.div>
 
-        <motion.div {...fadeUp(0.15)} className="glass-card p-6 md:p-8">
-          <h3 className="text-sm font-semibold text-foreground">Risk Mitigation for Lenders</h3>
-          <ul className="mt-6 space-y-4">
-            {riskMitigators.map((item, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
-                <span className="text-sm leading-relaxed text-muted-foreground">{item}</span>
-              </li>
-            ))}
-          </ul>
+          {/* Risk mitigation */}
+          <motion.div variants={fadeUp} className="rounded-lg border border-border bg-card p-6">
+            <h3 className="mb-6 text-xl text-foreground">Risk Mitigation</h3>
+            <ul className="space-y-3">
+              {highlights.map((h) => (
+                <li key={h} className="flex items-start gap-3 text-sm text-muted-foreground">
+                  <CheckCircle size={16} className="mt-0.5 shrink-0 text-primary" />
+                  {h}
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+        </div>
+
+        {/* ROI summary */}
+        <motion.div variants={fadeUp} className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
+          {[
+            { label: "Target ROI", value: "3–4×" },
+            { label: "Payback Period", value: "14 mo" },
+            { label: "Projected Y2 ARR", value: "$800K" },
+            { label: "Collateral Coverage", value: "100%" },
+          ].map((m) => (
+            <div key={m.label} className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-center">
+              <p className="font-mono-data text-2xl font-semibold text-primary">{m.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{m.label}</p>
+            </div>
+          ))}
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   </section>
 );

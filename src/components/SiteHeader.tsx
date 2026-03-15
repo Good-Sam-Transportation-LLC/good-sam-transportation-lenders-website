@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
-import type React from "react";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { fadeIn } from "@/lib/motion";
 import { Menu, X } from "lucide-react";
 
-const links = [
-  { label: "Financials", href: "#financials" },
+const navLinks = [
   { label: "Market", href: "#market" },
+  { label: "Financials", href: "#financials" },
   { label: "Fleet", href: "#fleet" },
   { label: "Investment", href: "#investment" },
   { label: "Contact", href: "#contact" },
@@ -104,9 +105,16 @@ const SiteHeader = () => {
               {l.label}
             </a>
           ))}
+          <a
+            href="#contact"
+            onClick={() => setOpen(false)}
+            className="mt-3 block rounded-sm bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground"
+          >
+            Request Pitch Deck
+          </a>
         </div>
       )}
-    </header>
+    </motion.header>
   );
 };
 

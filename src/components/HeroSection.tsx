@@ -1,47 +1,78 @@
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { fadeUpAnimate } from "@/lib/motion";
+import { fadeUp, staggerContainer } from "@/lib/motion";
+import { TrendingUp, MapPin } from "lucide-react";
 
-const metrics = [
-  { label: "Annual Revenue", value: "$200K+", sub: "Proven Cash Flow" },
-  { label: "Operating Margin", value: "42%", sub: "High Efficiency" },
-  { label: "Asset Valuation", value: "$1.2M", sub: "Collateral-Backed" },
-];
+const HeroSection = () => (
+  <section className="relative flex min-h-screen items-center overflow-hidden pt-16">
+    {/* Subtle gradient overlay */}
+    <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-secondary/20" />
 
-const HeroSection = () => {
-  return (
-    <section className="relative overflow-hidden pb-20 pt-32 lg:pt-40">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-gold/5 blur-[120px]" />
-      <div className="section-container relative z-10">
-        <motion.p {...fadeUpAnimate(0)} className="data-mono mb-6 text-xs uppercase tracking-[0.2em] text-gold">
-          Investor Relations — Good Sam Transportation
-        </motion.p>
-        <motion.h1 {...fadeUpAnimate(0.1)} className="max-w-4xl text-4xl font-semibold leading-[1.1] tracking-tight text-foreground md:text-6xl lg:text-7xl">
-          Scaling a Proven <span className="text-gold-gradient">$200K</span> Luxury Transportation Model
+    <div className="container relative z-10">
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+        className="mx-auto max-w-4xl text-center"
+      >
+        <motion.div variants={fadeUp} className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5 text-xs text-muted-foreground">
+          <MapPin size={12} className="text-primary" />
+          Los Angeles, California
+        </motion.div>
+
+        <motion.h1
+          variants={fadeUp}
+          className="mb-6 text-4xl leading-tight tracking-tight md:text-6xl lg:text-7xl"
+        >
+          Luxury Ground Transportation.{" "}
+          <span className="text-gold-gradient">Institutional-Grade Returns.</span>
         </motion.h1>
-        <motion.p {...fadeUpAnimate(0.2)} className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-          Asset-backed growth, high-utilization unit economics, and a clear path to market leadership in premium ground transportation.
+
+        <motion.p
+          variants={fadeUp}
+          className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl"
+        >
+          Good Sam Transportation delivers premium chauffeur services in the Los Angeles market—
+          generating <span className="font-mono-data font-semibold text-primary">$200,000</span> in
+          annual recurring revenue with a lean, asset-backed model ready to scale.
         </motion.p>
-        <motion.div {...fadeUpAnimate(0.3)} className="mt-10 flex flex-wrap gap-4">
-          <a href="#contact" className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:brightness-110">
-            Request Pitch Deck <ArrowRight className="h-4 w-4" />
+
+        <motion.div variants={fadeUp} className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <a
+            href="#investment"
+            className="rounded-sm bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            View Investment Thesis
           </a>
-          <a href="#financials" className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-surface">
-            View Financials
+          <a
+            href="#financials"
+            className="flex items-center gap-2 rounded-sm border border-border px-8 py-3 text-sm text-foreground transition-colors hover:bg-secondary"
+          >
+            <TrendingUp size={14} className="text-primary" />
+            Financial Overview
           </a>
         </motion.div>
-        <motion.div {...fadeUpAnimate(0.45)} className="mt-16 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
-          {metrics.map((m) => (
-            <div key={m.label} className="bg-card px-6 py-6">
-              <p className="data-mono text-xs uppercase tracking-wider text-muted-foreground">{m.label}</p>
-              <p className="mt-1 text-3xl font-semibold text-gold">{m.value}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{m.sub}</p>
+
+        {/* Key metric cards */}
+        <motion.div
+          variants={fadeUp}
+          className="mt-20 grid grid-cols-2 gap-4 md:grid-cols-4"
+        >
+          {[
+            { label: "Annual Revenue", value: "$200K", sub: "ARR" },
+            { label: "Net Margin", value: "28%", sub: "After ops" },
+            { label: "Fleet Value", value: "$185K", sub: "Asset-backed" },
+            { label: "Capital Sought", value: "$500K", sub: "Fleet expansion" },
+          ].map((m) => (
+            <div key={m.label} className="rounded-lg border border-border bg-card/50 p-4 text-center backdrop-blur-sm">
+              <p className="font-mono-data text-2xl font-semibold text-primary md:text-3xl">{m.value}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{m.label}</p>
+              <p className="text-[10px] text-muted-foreground/60">{m.sub}</p>
             </div>
           ))}
         </motion.div>
-      </div>
-    </section>
-  );
-};
+      </motion.div>
+    </div>
+  </section>
+);
 
 export default HeroSection;
