@@ -53,10 +53,15 @@ const SiteHeader = () => {
   return (
     <header
       ref={headerRef}
+      id="top"
       className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg"
     >
       <div className="section-container flex h-16 items-center justify-between">
-        <a href="#" className="text-sm font-semibold tracking-tight text-foreground">
+        <a
+          href="#top"
+          onClick={(event) => handleNavClick(event, "#top")}
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
           GOOD SAM<span className="text-gold">.</span>
         </a>
 
