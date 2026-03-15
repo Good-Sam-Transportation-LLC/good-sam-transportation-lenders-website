@@ -47,13 +47,13 @@ const SiteHeader = () => {
     if (targetElement && typeof window !== "undefined") {
       event.preventDefault();
 
-      const headerElement =
-        typeof document !== "undefined" ? document.getElementById("top") : null;
-      const headerOffset = headerElement
-        ? headerElement.getBoundingClientRect().height
-        : 0;
+      // Use a constant offset equal to the fixed header height (e.g., Tailwind h-16 = 64px)
+      const headerOffset = 64;
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
+
+      
+      
 
       const prefersReducedMotion =
         typeof window.matchMedia === "function" &&
