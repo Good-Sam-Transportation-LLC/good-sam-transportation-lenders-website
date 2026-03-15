@@ -22,6 +22,7 @@ const CORS_ALLOWED_HEADERS =
   "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key";
 
 const CORS_ALLOWED_METHODS = "POST, OPTIONS";
+const CORS_VARY_HEADER_VALUE = "Origin";
 
 const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
 
@@ -40,18 +41,36 @@ if (!allowedOriginsEnv) {
   );
 }
 
-function getCorsHeaders(origin: string): HeadersInit {
+function createCorsHeaders(options: {
+  origin?: string | null;
+  allowAnyOrigin: boolean;
+  includeContentType?: boolean;
+}): Record<string, string> {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": CORS_ALLOWED_HEADERS,
     "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
-    "Vary": "Origin",
+    "Vary": CORS_VARY_HEADER_VALUE,
   };
 
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    headers["Access-Control-Allow-Origin"] = origin;
+  if (options.includeContentType) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const origin = options.origin ?? undefined;
+  if (origin) {
+    if (options.allowAnyOrigin || ALLOWED_ORIGINS.includes(origin)) {
+      headers["Access-Control-Allow-Origin"] = origin;
+    }
   }
 
   return headers;
+}
+
+function getCorsHeaders(origin: string): HeadersInit {
+  return createCorsHeaders({
+    origin,
+    allowAnyOrigin: false,
+  });
 }
 
 function createConfigErrorResponse(origin?: string | null): Response {
@@ -61,18 +80,11 @@ function createConfigErrorResponse(origin?: string | null): Response {
       "The ALLOWED_ORIGINS environment variable is not configured correctly. Please set it to a non-empty comma-separated list of origins.",
   };
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    // For configuration errors, reflect the request origin (when available)
-    // so that browser clients can see and diagnose the misconfiguration.
-    "Access-Control-Allow-Headers": CORS_ALLOWED_HEADERS,
-    "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
-    "Vary": "Origin",
-  };
-
-  if (origin) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
+  const headers = createCorsHeaders({
+    origin,
+    allowAnyOrigin: true,
+    includeContentType: true,
+  });
 
   return new Response(JSON.stringify(body), {
     status: 500,
