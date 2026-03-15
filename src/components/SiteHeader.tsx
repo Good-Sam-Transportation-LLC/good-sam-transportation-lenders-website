@@ -47,7 +47,7 @@ const SiteHeader = () => {
   };
 
   return (
-    <header
+    <motion.header
       ref={headerRef}
       className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg"
     >
