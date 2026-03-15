@@ -26,7 +26,7 @@ const ContactSection = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("send-investor-inquiry", {
+      const { error } = await supabase.functions.invoke("send-investor-inquiry", {
         body: formData,
       });
 
