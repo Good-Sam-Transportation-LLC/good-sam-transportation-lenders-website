@@ -56,7 +56,7 @@ const SiteHeader = () => {
         <nav className="hidden items-center gap-8 md:flex">
           {links.map((l) => (
             <a
-              onClick={(event) => handleNavClick(event, l.href)}
+              key={l.href}
               href={l.href}
               onClick={(event) => handleNavClick(event, l.href)}
               className="text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
