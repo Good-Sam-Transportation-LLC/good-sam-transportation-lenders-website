@@ -43,9 +43,6 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
-  // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
-
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -53,10 +50,10 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Enforce origin allowlist for browser-originated POST requests:
-  // - If an Origin header is present but not allowed (i.e., no Access-Control-Allow-Origin set),
-  //   reject with 403 without processing the request body.
-  if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
+  // Enforce origin allowlist: reject any POST that does not carry an allowed Origin header.
+  // This covers both an absent Origin (non-browser / direct HTTP clients) and a present
+  // Origin that is not in the allowlist, preventing endpoint abuse from outside the site.
+  if (!("Access-Control-Allow-Origin" in corsHeaders)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
