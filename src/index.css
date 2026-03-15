@@ -93,7 +93,7 @@
   }
 
   .ticker-scroll {
-    animation: ticker 30s linear infinite;
+    animation: ticker-scroll 30s linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
