@@ -131,8 +131,15 @@ Deno.serve(async (req) => {
   // Enforce origin allowlist for browser clients: reject any POST that carries a non-empty
   // Origin header that is not in the allowlist. This is a CORS control, not a security
   // boundary, and is complemented by the optional shared-secret check below when configured.
-  // Requests without an Origin header (e.g., server-to-server) are allowed to proceed to
-  // shared-secret validation.
+  // Requests without an Origin header (e.g., server-to-server) are only allowed when a
+  // shared secret is configured; otherwise they are rejected to avoid unauthenticated spam.
+  if (!origin && !INVESTOR_INQUIRY_API_SECRET) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
