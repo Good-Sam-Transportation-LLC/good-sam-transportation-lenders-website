@@ -311,9 +311,16 @@ Deno.serve(async (req) => {
       // Bound the webhook call with a timeout so a slow/down endpoint
       // cannot indefinitely delay the function response.
       const webhookTimeoutMsEnv = Deno.env.get("INVESTOR_INQUIRY_WEBHOOK_TIMEOUT_MS");
-      const webhookTimeoutMs = Number.isFinite(Number(webhookTimeoutMsEnv))
-        ? Number(webhookTimeoutMsEnv)
-        : 5000;
+      const parsedTimeoutMs = Number(webhookTimeoutMsEnv);
+      const MIN_WEBHOOK_TIMEOUT_MS = 100;
+      const DEFAULT_WEBHOOK_TIMEOUT_MS = 5000;
+      const MAX_WEBHOOK_TIMEOUT_MS = 60000;
+      const webhookTimeoutMs = Number.isFinite(parsedTimeoutMs)
+        ? Math.min(
+            MAX_WEBHOOK_TIMEOUT_MS,
+            Math.max(MIN_WEBHOOK_TIMEOUT_MS, parsedTimeoutMs),
+          )
+        : DEFAULT_WEBHOOK_TIMEOUT_MS;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
