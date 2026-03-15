@@ -20,14 +20,14 @@ const SiteHeader = () => {
       return;
     }
 
-    event.preventDefault();
-
     const targetId = href.slice(1);
-    const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
-
-    const headerOffset = headerRef.current?.offsetHeight ?? FIXED_HEADER_HEIGHT;
+    const targetElement =
+      typeof document !== "undefined" ? document.getElementById(targetId) : null;
 
     if (targetElement && typeof window !== "undefined") {
+      event.preventDefault();
+
+      const headerOffset = headerRef.current?.offsetHeight ?? FIXED_HEADER_HEIGHT;
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
