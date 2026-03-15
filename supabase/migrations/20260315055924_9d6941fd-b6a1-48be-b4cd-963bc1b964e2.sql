@@ -23,7 +23,7 @@ CREATE TABLE public.investor_inquiries (
 ALTER TABLE public.investor_inquiries ENABLE ROW LEVEL SECURITY;
 
 -- Allow inserts from authenticated users
-CREATE POLICY "Allow anonymous inserts"
+CREATE POLICY "Allow authenticated inserts"
 ON public.investor_inquiries
 FOR INSERT
 TO authenticated
