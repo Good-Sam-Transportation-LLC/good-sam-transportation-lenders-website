@@ -20,6 +20,29 @@ const SiteHeader = () => {
       return;
     }
 
+    // Special-case the "#top" anchor to scroll to the very top of the page.
+    if (href === "#top" && typeof window !== "undefined") {
+      event.preventDefault();
+
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      window.scrollTo({
+        top: 0,
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+
+      try {
+        window.history.replaceState(null, "", href);
+      } catch {
+        window.location.hash = href;
+      }
+
+      setOpen(false);
+      return;
+    }
+
     const targetId = href.slice(1);
     const targetElement =
       typeof document !== "undefined" ? document.getElementById(targetId) : null;
