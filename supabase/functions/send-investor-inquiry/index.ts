@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
+import { timingSafeEqual } from "https://deno.land/std@0.224.0/crypto/timing_safe_equal.ts";
 
 // Basic but stricter-than-includes("@") email validation to align with DB constraint
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -142,7 +143,13 @@ Deno.serve(async (req) => {
     );
   }
   const providedApiKey = req.headers.get("x-api-key") ?? "";
-  if (providedApiKey !== requiredApiKey) {
+  const encoder = new TextEncoder();
+  const requiredKeyBytes = encoder.encode(requiredApiKey);
+  const providedKeyBytes = encoder.encode(providedApiKey);
+  if (
+    providedKeyBytes.length !== requiredKeyBytes.length ||
+    !timingSafeEqual(providedKeyBytes, requiredKeyBytes)
+  ) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
