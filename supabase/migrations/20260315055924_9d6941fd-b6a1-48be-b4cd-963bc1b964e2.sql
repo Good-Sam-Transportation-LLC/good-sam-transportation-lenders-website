@@ -1,4 +1,6 @@
 -- Create investor_inquiries table
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE public.investor_inquiries (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   full_name TEXT NOT NULL,
