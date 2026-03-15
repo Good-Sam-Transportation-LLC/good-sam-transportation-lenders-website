@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type React from "react";
 import { Menu, X } from "lucide-react";
 
@@ -12,6 +12,7 @@ const links = [
 
 const SiteHeader = () => {
   const [open, setOpen] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const handleNavClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!href || href[0] !== "#") {
@@ -23,12 +24,11 @@ const SiteHeader = () => {
     const targetId = href.slice(1);
     const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
 
-    // Header height is h-16 (4rem), which is 64px with a base font size of 16px.
-    const HEADER_OFFSET = 64;
+    const headerOffset = headerRef.current?.offsetHeight ?? 0;
 
     if (targetElement && typeof window !== "undefined") {
       const rect = targetElement.getBoundingClientRect();
-      const scrollTop = window.scrollY + rect.top - HEADER_OFFSET;
+      const scrollTop = window.scrollY + rect.top - headerOffset;
 
       window.scrollTo({
         top: scrollTop,
@@ -46,7 +46,10 @@ const SiteHeader = () => {
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg">
+    <header
+      ref={headerRef}
+      className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg"
+    >
       <div className="section-container flex h-16 items-center justify-between">
         <a href="#" className="text-sm font-semibold tracking-tight text-foreground">
           GOOD SAM<span className="text-gold">.</span>
