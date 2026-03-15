@@ -60,8 +60,25 @@ Deno.serve(async (req) => {
     });
   }
 
+  let body: unknown;
   try {
-    const { full_name, firm, email, investment_interest, message } = await req.json();
+    body = await req.json();
+  } catch (err) {
+    console.error("Invalid JSON payload:", err);
+    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const { full_name, firm, email, investment_interest, message } = body as {
+      full_name?: unknown;
+      firm?: unknown;
+      email?: unknown;
+      investment_interest?: unknown;
+      message?: unknown;
+    };
 
     // Validate required fields
     if (!full_name || typeof full_name !== "string" || full_name.trim().length === 0) {
