@@ -7,22 +7,44 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Send, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getSupabaseClient } from "@/integrations/supabase/client";
 
 const ContactSection = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const form = e.target as HTMLFormElement;
+    const data = new FormData(form);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.from("investor_inquiries").insert({
+        full_name: data.get("full_name") as string,
+        email: data.get("email") as string,
+        firm: (data.get("firm") as string) || null,
+        investment_interest: data.get("investment_interest") as string,
+        message: (data.get("message") as string) || null,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Inquiry Received",
         description: "Our investor relations team will respond within 24 hours.",
       });
-      (e.target as HTMLFormElement).reset();
-    }, 1200);
+      form.reset();
+    } catch {
+      toast({
+        title: "Submission Failed",
+        description: "Something went wrong. Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
