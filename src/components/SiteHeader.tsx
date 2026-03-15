@@ -26,7 +26,7 @@ const SiteHeader = () => {
     const targetId = href.slice(1);
     const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
 
-    const headerOffset = FIXED_HEADER_HEIGHT;
+    const headerOffset = headerRef.current?.offsetHeight ?? FIXED_HEADER_HEIGHT;
 
     if (targetElement && typeof window !== "undefined") {
       const rect = targetElement.getBoundingClientRect();
