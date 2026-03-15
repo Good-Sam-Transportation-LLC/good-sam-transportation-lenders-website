@@ -26,7 +26,7 @@ const HeroSection = () => {
           <a href="#contact" className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:brightness-110">
             Request Pitch Deck <ArrowRight className="h-4 w-4" />
           </a>
-          <a href="#financials" className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-secondary/90">
+          <a href="#financials" className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-medium text-secondary-foreground transition-all hover:bg-surface-elevated">
             View Financials
           </a>
         </motion.div>
