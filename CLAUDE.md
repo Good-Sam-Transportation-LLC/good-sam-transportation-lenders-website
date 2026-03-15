@@ -204,7 +204,7 @@ Scroll-triggered animations use `viewport: { once: true, margin: "-60px" }` — 
 ### Tailwind Configuration
 
 - **Dark mode**: `class` strategy (toggle `.dark` on `<html>`)
-- **Fonts**: `Inter` (sans-serif body/headings), `IBM Plex Mono` (data/numbers)
+- **Fonts**: `Inter` (sans-serif body), `Instrument Serif` (serif headings), `IBM Plex Mono` (data/numbers)
 - **Custom color**: `gold` (`hsl(43 72% 52%)`) — used for accents, borders, highlights
 
 ### CSS Variables (`src/index.css`)
