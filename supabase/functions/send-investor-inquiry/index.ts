@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `New investor inquiry from ${normalizedFullName} (${normalizedEmail}) - Interest: ${normalizedInvestmentInterest}`,
+      `New investor inquiry received - Interest: ${normalizedInvestmentInterest}`,
     );
 
     return new Response(JSON.stringify({ success: true }), {
