@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, type MouseEvent } from "react";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
@@ -15,7 +15,7 @@ const SiteHeader = () => {
   const [open, setOpen] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
 
-  const handleNavClick = (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+  const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!href || href[0] !== "#") {
       return;
     }
