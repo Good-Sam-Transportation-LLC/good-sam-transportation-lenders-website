@@ -10,7 +10,7 @@ CREATE TABLE public.investor_inquiries (
   email TEXT NOT NULL
     CHECK (
       length(email) BETWEEN 3 AND 320
-      AND email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+      AND email ~* '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'
     ),
   investment_interest TEXT NOT NULL
     CHECK (length(investment_interest) BETWEEN 1 AND 200),
