@@ -78,7 +78,14 @@ const ContactSection = () => {
 
             <div>
               <Label htmlFor="message" className="text-xs text-muted-foreground">Message</Label>
-              <Textarea id="message" name="message" rows={4} placeholder="Tell us about your investment interest..." className="mt-1 bg-secondary border-border" />
+              <Textarea
+                id="message"
+                name="message"
+                rows={4}
+                placeholder="Tell us about your investment interest..."
+                className="mt-1 bg-secondary border-border"
+                maxLength={2000}
+              />
             </div>
 
             <div className="space-y-3">
