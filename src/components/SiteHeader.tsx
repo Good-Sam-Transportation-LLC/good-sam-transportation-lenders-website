@@ -44,6 +44,40 @@ const SiteHeader = () => {
     setOpen(false);
   };
 
+  const handleNavClick = (event: any, href: string) => {
+    if (!href || href[0] !== "#") {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetId = href.slice(1);
+    const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
+
+    // Header height is h-16 (4rem), which is 64px with a base font size of 16px.
+    const HEADER_OFFSET = 64;
+
+              onClick={(event) => handleNavClick(event, l.href)}
+    if (targetElement && typeof window !== "undefined") {
+      const rect = targetElement.getBoundingClientRect();
+      const scrollTop = window.scrollY + rect.top - HEADER_OFFSET;
+
+      window.scrollTo({
+        top: scrollTop,
+        behavior: "smooth",
+            onClick={(event) => handleNavClick(event, "#contact")}
+      });
+
+      try {
+        window.history.replaceState(null, "", href);
+      } catch {
+        window.location.hash = href;
+      }
+    }
+
+    setOpen(false);
+  };
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg">
       <div className="section-container flex h-16 items-center justify-between">
@@ -55,7 +89,7 @@ const SiteHeader = () => {
         <nav className="hidden items-center gap-8 md:flex">
           {links.map((l) => (
             <a
-              key={l.label}
+              onClick={(event) => handleNavClick(event, l.href)}
               href={l.href}
               onClick={(event) => handleNavClick(event, l.href)}
               className="text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
