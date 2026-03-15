@@ -108,6 +108,7 @@ const SiteHeader = () => {
 
         {/* Mobile toggle */}
         <button
+          type="button"
           className="text-foreground md:hidden"
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
