@@ -1,14 +1,60 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+function getCorsHeaders(origin: string): HeadersInit {
+  const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
+  const allowedOrigins = allowedOriginsEnv
+    .split(",")
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
+
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+
+  if (origin && allowedOrigins.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+
+  return headers;
+}
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin") || "";
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
+    // Handle CORS preflight
+    if (!("Access-Control-Allow-Origin" in corsHeaders)) {
+      return new Response("Forbidden", { status: 403 });
+    }
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Enforce allowed origins for non-preflight requests
+  if (!("Access-Control-Allow-Origin" in corsHeaders)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  // Require POST for actual requests
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Simple abuse control: shared secret header check
+  const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
+  if (expectedSecret) {
+    const providedSecret = req.headers.get("x-investor-inquiry-secret");
+    if (providedSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   }
 
   try {
@@ -35,7 +81,12 @@ Deno.serve(async (req) => {
     }
 
     // Length validation
-    if (full_name.length > 100 || (firm && firm.length > 100) || email.length > 255 || (message && message.length > 1000)) {
+    if (
+      full_name.length > 100 ||
+      (firm && firm.length > 100) ||
+      email.length > 255 ||
+      (message && message.length > 1000)
+    ) {
       return new Response(JSON.stringify({ error: "Input exceeds maximum length" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,7 +113,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`New investor inquiry from ${full_name} (${email}) - Interest: ${investment_interest}`);
+    console.log(
+      `New investor inquiry from ${full_name} (${email}) - Interest: ${investment_interest}`,
+    );
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
