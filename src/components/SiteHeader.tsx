@@ -1,5 +1,4 @@
 import { useState, useRef, type MouseEvent } from "react";
-import type React from "react";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
