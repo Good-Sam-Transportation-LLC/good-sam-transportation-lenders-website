@@ -10,7 +10,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-16">
       <SiteHeader />
       <Ticker />
       <HeroSection />
