@@ -166,8 +166,22 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error("Insert error:", insertError);
-      return new Response(JSON.stringify({ error: "Failed to save inquiry" }), {
-        status: 500,
+
+      // Map common Postgres data/constraint violations to 400 so clients can fix their payload.
+      // Examples:
+      //  - 23514: check_violation
+      //  - 23502: not_null_violation
+      //  - 22001: string_data_right_truncation (value too long)
+      //  - 23505: unique_violation
+      const clientErrorCodes = new Set(["23514", "23502", "22001", "23505"]);
+      const isClientError =
+        typeof insertError.code === "string" && clientErrorCodes.has(insertError.code);
+
+      const status = isClientError ? 400 : 500;
+      const message = isClientError ? "Invalid inquiry data" : "Failed to save inquiry";
+
+      return new Response(JSON.stringify({ error: message }), {
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
