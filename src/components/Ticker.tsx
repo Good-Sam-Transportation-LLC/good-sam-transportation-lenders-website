@@ -15,7 +15,11 @@ const Ticker = () => {
       <div className="ticker-scroll flex whitespace-nowrap">
         {[...items, ...items].map((item, i) => (
           <span key={i} className="data-mono mx-8 text-xs tracking-wide text-muted-foreground">
-            <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-gold" />
+            <span
+              className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-gold"
+              aria-hidden="true"
+              role="presentation"
+            />
             {item}
           </span>
         ))}
