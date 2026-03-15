@@ -1,15 +1,52 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Lock, Loader2 } from "lucide-react";
 import { fadeUp } from "@/lib/motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const ContactSection = () => {
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    full_name: "",
+    firm: "",
+    email: "",
+    investment_interest: "Asset-Backed Lending",
+    message: "",
+  });
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("send-investor-inquiry", {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      setSubmitted(true);
+      toast({
+        title: "Inquiry Submitted",
+        description: "Our investor relations team will respond within 24 hours.",
+      });
+    } catch (err) {
+      console.error("Submission error:", err);
+      toast({
+        title: "Submission Failed",
+        description: "Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,20 +84,20 @@ const ContactSection = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="contact-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">Full Name</label>
-                    <input id="contact-name" required type="text" maxLength={100} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                    <input id="contact-name" name="full_name" required type="text" maxLength={100} value={formData.full_name} onChange={handleChange} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                   </div>
                   <div>
                     <label htmlFor="contact-firm" className="mb-1.5 block text-xs font-medium text-muted-foreground">Firm / Organization</label>
-                    <input id="contact-firm" type="text" maxLength={100} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                    <input id="contact-firm" name="firm" type="text" maxLength={100} value={formData.firm} onChange={handleChange} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                   </div>
                 </div>
                 <div>
                   <label htmlFor="contact-email" className="mb-1.5 block text-xs font-medium text-muted-foreground">Email Address</label>
-                  <input id="contact-email" required type="email" maxLength={255} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                  <input id="contact-email" name="email" required type="email" maxLength={255} value={formData.email} onChange={handleChange} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                 </div>
                 <div>
                   <label htmlFor="contact-interest" className="mb-1.5 block text-xs font-medium text-muted-foreground">Investment Interest</label>
-                  <select id="contact-interest" className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20">
+                  <select id="contact-interest" name="investment_interest" value={formData.investment_interest} onChange={handleChange} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20">
                     <option>Asset-Backed Lending</option>
                     <option>Equity Partnership</option>
                     <option>Convertible Note</option>
@@ -69,10 +106,14 @@ const ContactSection = () => {
                 </div>
                 <div>
                   <label htmlFor="contact-message" className="mb-1.5 block text-xs font-medium text-muted-foreground">Message (Optional)</label>
-                  <textarea id="contact-message" rows={3} maxLength={1000} className="w-full resize-none rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                  <textarea id="contact-message" name="message" rows={3} maxLength={1000} value={formData.message} onChange={handleChange} className="w-full resize-none rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                 </div>
-                <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:brightness-110">
-                  Submit Inquiry <ArrowRight className="h-4 w-4" />
+                <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:brightness-110 disabled:opacity-50">
+                  {loading ? (
+                    <>Submitting… <Loader2 className="h-4 w-4 animate-spin" /></>
+                  ) : (
+                    <>Submit Inquiry <ArrowRight className="h-4 w-4" /></>
+                  )}
                 </button>
                 <p className="text-center text-[10px] text-muted-foreground">All communications are confidential and NDA-protected upon request.</p>
               </form>
