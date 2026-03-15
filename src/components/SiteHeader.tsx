@@ -27,7 +27,9 @@ const SiteHeader = () => {
     if (targetElement && typeof window !== "undefined") {
       event.preventDefault();
 
-      const headerOffset = FIXED_HEADER_HEIGHT;
+      const headerOffset =
+        (typeof window !== "undefined" && headerRef.current?.offsetHeight) ??
+        FIXED_HEADER_HEIGHT;
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
