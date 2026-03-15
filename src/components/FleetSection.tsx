@@ -27,10 +27,19 @@ const FleetSection = () => (
       <motion.div {...fadeUpProps(0.15)} className="glass-card mt-12 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
+            <caption className="sr-only">
+              Overview of premium fleet vehicles with year, asset value, utilization, and operational status.
+            </caption>
             <thead>
               <tr className="border-b border-border text-left">
                 {["Vehicle", "Year", "Asset Value", "Utilization", "Status"].map((h) => (
-                  <th key={h} className="data-mono px-6 py-4 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{h}</th>
+                  <th
+                    key={h}
+                    scope="col"
+                    className="data-mono px-6 py-4 text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
