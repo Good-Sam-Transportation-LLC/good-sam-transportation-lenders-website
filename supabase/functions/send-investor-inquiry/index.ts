@@ -19,7 +19,7 @@ function getCorsHeaders(origin: string): HeadersInit {
 
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-investor-inquiry-secret",
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
@@ -46,26 +46,9 @@ Deno.serve(async (req) => {
   // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
   // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
 
-  // Simple abuse control: shared secret header check (mandatory)
-  const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
-  if (!expectedSecret) {
-    console.error("INVESTOR_INQUIRY_SECRET is not configured; refusing to process request.");
-    return new Response(JSON.stringify({ error: "Service misconfigured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const providedSecret = req.headers.get("x-investor-inquiry-secret");
-  if (providedSecret !== expectedSecret) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
