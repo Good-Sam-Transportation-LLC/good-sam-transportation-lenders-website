@@ -13,16 +13,23 @@ const Ticker = () => {
   return (
     <div className="w-full overflow-hidden border-b border-border bg-surface py-2.5">
       <div className="ticker-scroll flex whitespace-nowrap">
-        {[...items, ...items].map((item, i) => (
-          <span key={i} className="data-mono mx-8 text-xs tracking-wide text-muted-foreground">
+        {[...items, ...items].map((item, i) => {
+          const isDuplicate = i >= items.length;
+          return (
             <span
-              className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-gold"
-              aria-hidden="true"
-              role="presentation"
-            />
-            {item}
-          </span>
-        ))}
+              key={i}
+              aria-hidden={isDuplicate}
+              className="data-mono mx-8 text-xs tracking-wide text-muted-foreground"
+            >
+              <span
+                className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-gold"
+                aria-hidden="true"
+                role="presentation"
+              />
+              {item}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
