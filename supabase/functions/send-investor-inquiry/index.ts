@@ -3,36 +3,86 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 // Basic but stricter-than-includes("@") email validation to align with DB constraint
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Max length constants aligned with DB schema:
-// - full_name, firm, and investment_interest: VARCHAR(200)
-// - email: VARCHAR(320)
-// - message: VARCHAR(2000)
+// Max length configuration aligned with DB schema:
+// - full_name, firm, and investment_interest: TEXT with length CHECK <= 200 (constants below)
+// - email: TEXT with length CHECK <= 320 (validated inline where used)
+// - message: TEXT with length CHECK <= 2000 (validated inline where used)
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
-const MAX_MESSAGE_LENGTH = 2000;
+
+// Map common Postgres data/constraint violations to 400 so clients can fix their payload.
+// Examples:
+//  - 23514: check_violation
+//  - 23502: not_null_violation
+//  - 22001: string_data_right_truncation (value too long)
+//  - 23505: unique_violation
+const CLIENT_ERROR_CODES = new Set(["23514", "23502", "22001", "23505"]);
+
+const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
+
+const ALLOWED_ORIGINS = allowedOriginsEnv
+  .split(",")
+  .map((o) => o.trim())
+  .filter((o) => o.length > 0);
+
+if (!allowedOriginsEnv) {
+  console.error(
+    "Environment variable ALLOWED_ORIGINS is not set. No origins will be allowed. Requests will receive a configuration error response until this is configured.",
+  );
+} else if (ALLOWED_ORIGINS.length === 0) {
+  console.error(
+    "Environment variable ALLOWED_ORIGINS resolved to an empty list after parsing. Please configure at least one allowed origin. Requests will receive a configuration error response until this is corrected.",
+  );
+}
 
 function getCorsHeaders(origin: string): HeadersInit {
-  const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
-  const allowedOrigins = allowedOriginsEnv
-    .split(",")
-    .map((o) => o.trim())
-    .filter((o) => o.length > 0);
-
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-investor-inquiry-secret",
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
 
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     headers["Access-Control-Allow-Origin"] = origin;
   }
 
   return headers;
 }
 
+function createConfigErrorResponse(origin?: string | null): Response {
+  const body = {
+    error: "Configuration error",
+    message:
+      "The ALLOWED_ORIGINS environment variable is not configured correctly. Please set it to a non-empty comma-separated list of origins.",
+  };
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    // For configuration errors, reflect the request origin (when available)
+    // so that browser clients can see and diagnose the misconfiguration.
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+
+  if (origin) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+
+  return new Response(JSON.stringify(body), {
+    status: 500,
+    headers,
+  });
+}
+
 Deno.serve(async (req) => {
+  if (ALLOWED_ORIGINS.length === 0) {
+    const origin = req.headers.get("Origin");
+    return createConfigErrorResponse(origin);
+  }
+
   const origin = req.headers.get("origin") || "";
   const corsHeaders = getCorsHeaders(origin);
 
@@ -44,39 +94,6 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
-  // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
-
-  // The request body is parsed once later in the handler (after method/secret checks)
-  // inside a try/catch. Avoid parsing it here to prevent consuming the body stream twice.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // Simple abuse control: shared secret header check (mandatory)
-  const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
-  if (!expectedSecret) {
-    console.error("INVESTOR_INQUIRY_SECRET is not configured; refusing to process request.");
-    return new Response(JSON.stringify({ error: "Service misconfigured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -84,26 +101,49 @@ Deno.serve(async (req) => {
     });
   }
 
-  const providedSecret = req.headers.get("x-investor-inquiry-secret");
-  if (providedSecret !== expectedSecret) {
+  // Enforce origin allowlist for browser clients: reject any POST that carries a non-empty
+  // Origin header that is not in the allowlist. This is a CORS control, not a security
+  // boundary, and is complemented by the API key check below when configured. Requests
+  // without an Origin header (e.g., server-to-server) are allowed to proceed to API key
+  // validation.
+  if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Required API key check for protection against automated abuse and to ensure this
+  // function is not exposed with only Origin-based gating. INQUIRY_API_KEY must be set
+  // in the environment, and clients must send the same value in the `x-api-key` header.
+  const requiredApiKey = Deno.env.get("INQUIRY_API_KEY");
+  if (!requiredApiKey) {
+    return new Response(
+      JSON.stringify({ error: "Server misconfiguration: INQUIRY_API_KEY not set" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+  const providedApiKey = req.headers.get("x-api-key") ?? "";
+  if (providedApiKey !== requiredApiKey) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  let body: unknown;
   try {
-    body = await req.json();
-  } catch (err) {
-    console.error("Invalid JSON payload:", err);
-    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    const body: unknown = await req.json();
 
-  try {
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { full_name, firm, email, investment_interest, message } = body as {
       full_name?: unknown;
       firm?: unknown;
@@ -188,9 +228,9 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
       console.error("Service misconfigured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing");
       return new Response(JSON.stringify({ error: "Service misconfigured" }), {
         status: 500,
@@ -198,7 +238,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const { error: insertError } = await supabase.from("investor_inquiries").insert({
       full_name: normalizedFullName,
@@ -217,21 +257,60 @@ Deno.serve(async (req) => {
       //  - 23502: not_null_violation
       //  - 22001: string_data_right_truncation (value too long)
       //  - 23505: unique_violation
-      const clientErrorCodes = new Set(["23514", "23502", "22001", "23505"]);
       const isClientError =
-        typeof insertError.code === "string" && clientErrorCodes.has(insertError.code);
+        typeof insertError.code === "string" && CLIENT_ERROR_CODES.has(insertError.code);
 
       const status = isClientError ? 400 : 500;
-      const message = isClientError ? "Invalid inquiry data" : "Failed to save inquiry";
+      const errorMessage = isClientError ? "Invalid inquiry data" : "Failed to save inquiry";
 
-      return new Response(JSON.stringify({ error: message }), {
+      return new Response(JSON.stringify({ error: errorMessage }), {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Optionally "send" the investor inquiry to an external notification endpoint
+    // so that this function does more than just persist the data.
+    const notificationEndpoint = Deno.env.get("INVESTOR_INQUIRY_WEBHOOK_URL");
+
+    if (notificationEndpoint) {
+      try {
+        const notifyResponse = await fetch(notificationEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            full_name: normalizedFullName,
+            firm: normalizedFirm,
+            email: normalizedEmail,
+            investment_interest: normalizedInvestmentInterest,
+            message: normalizedMessage,
+            created_at: new Date().toISOString(),
+          }),
+        });
+
+        if (!notifyResponse.ok) {
+          let responseBody = "";
+          try {
+            responseBody = await notifyResponse.text();
+          } catch {
+            responseBody = "<unavailable>";
+          }
+
+          console.error(
+            "Failed to send investor inquiry notification",
+            notifyResponse.status,
+            responseBody,
+          );
+        }
+      } catch (notificationError) {
+        console.error("Error while sending investor inquiry notification", notificationError);
+      }
+    }
+
     console.log(
-      `New investor inquiry from ${normalizedFullName} (${normalizedEmail}) - Interest: ${normalizedInvestmentInterest}`,
+      `New investor inquiry received - Interest: ${normalizedInvestmentInterest}`,
     );
 
     return new Response(JSON.stringify({ success: true }), {
@@ -239,6 +318,13 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    if (err instanceof SyntaxError) {
+      console.error("Invalid JSON payload:", err);
+      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("Unexpected error:", err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,

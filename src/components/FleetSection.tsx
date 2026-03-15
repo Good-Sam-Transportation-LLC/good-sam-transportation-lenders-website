@@ -27,10 +27,19 @@ const FleetSection = () => (
       <motion.div {...fadeUpProps(0.15)} className="glass-card mt-12 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
+            <caption className="sr-only">
+              Overview of premium fleet vehicles with year, asset value, utilization, and operational status.
+            </caption>
             <thead>
               <tr className="border-b border-border text-left">
                 {["Vehicle", "Year", "Asset Value", "Utilization", "Status"].map((h) => (
-                  <th key={h} className="data-mono px-6 py-4 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{h}</th>
+                  <th
+                    key={h}
+                    scope="col"
+                    className="data-mono px-6 py-4 text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -43,7 +52,7 @@ const FleetSection = () => (
                   <td className="data-mono px-6 py-4 text-gold">{v.utilization}</td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary">
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
                       {v.status}
                     </span>
                   </td>

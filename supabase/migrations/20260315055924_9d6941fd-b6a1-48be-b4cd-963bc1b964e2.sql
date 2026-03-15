@@ -22,19 +22,7 @@ CREATE TABLE public.investor_inquiries (
 -- Enable RLS
 ALTER TABLE public.investor_inquiries ENABLE ROW LEVEL SECURITY;
 
--- Allow inserts from authenticated users
-CREATE POLICY "Allow authenticated inserts"
-ON public.investor_inquiries
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  full_name IS NOT NULL
-  AND length(full_name) BETWEEN 1 AND 200
-  AND email IS NOT NULL
-  AND length(email) BETWEEN 3 AND 320
-  AND email ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$'
-  AND investment_interest IS NOT NULL
-  AND length(investment_interest) BETWEEN 1 AND 200
-  AND (firm IS NULL OR length(firm) <= 200)
-  AND (message IS NULL OR length(message) <= 2000)
-);
+-- Anonymous insert policy intentionally omitted.
+-- Public form submissions should be handled via a secure backend
+-- (e.g., edge function using the service-role key) rather than
+-- granting direct insert privileges to the anon role.

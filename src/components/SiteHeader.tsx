@@ -1,5 +1,4 @@
 import { useState, useRef, type MouseEvent } from "react";
-import type React from "react";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
@@ -21,20 +20,49 @@ const SiteHeader = () => {
       return;
     }
 
-    event.preventDefault();
+    // Special-case the "#top" anchor to scroll to the very top of the page.
+    if (href === "#top" && typeof window !== "undefined") {
+      event.preventDefault();
+
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      window.scrollTo({
+        top: 0,
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+
+      try {
+        window.history.replaceState(null, "", href);
+      } catch {
+        window.location.hash = href;
+      }
+
+      setOpen(false);
+      return;
+    }
 
     const targetId = href.slice(1);
-    const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
-
-    const headerOffset = FIXED_HEADER_HEIGHT;
+    const targetElement =
+      typeof document !== "undefined" ? document.getElementById(targetId) : null;
 
     if (targetElement && typeof window !== "undefined") {
+      event.preventDefault();
+
+      const headerOffset =
+        (typeof window !== "undefined" && headerRef.current?.offsetHeight) ??
+        FIXED_HEADER_HEIGHT;
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
       window.scrollTo({
         top: scrollTop,
-        behavior: "smooth",
+        behavior: prefersReducedMotion ? "auto" : "smooth",
       });
 
       try {
@@ -50,10 +78,15 @@ const SiteHeader = () => {
   return (
     <header
       ref={headerRef}
+      id="top"
       className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg"
     >
       <div className="section-container flex h-16 items-center justify-between">
-        <a href="#" className="text-sm font-semibold tracking-tight text-foreground">
+        <a
+          href="#top"
+          onClick={(event) => handleNavClick(event, "#top")}
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
           GOOD SAM<span className="text-gold">.</span>
         </a>
 
@@ -74,7 +107,7 @@ const SiteHeader = () => {
             onClick={(event) => handleNavClick(event, "#contact")}
             className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:brightness-110"
           >
-            Request Deck
+            Request Pitch Deck
           </a>
         </nav>
 
@@ -98,7 +131,7 @@ const SiteHeader = () => {
         >
           {navLinks.map((l) => (
             <a
-              key={l.label}
+              key={l.href}
               href={l.href}
               onClick={(event) => handleNavClick(event, l.href)}
               className="block py-2 text-sm text-muted-foreground"
@@ -111,7 +144,7 @@ const SiteHeader = () => {
             onClick={(event) => handleNavClick(event, "#contact")}
             className="mt-3 block rounded-sm bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground"
           >
-            Request Pitch Deck
+            Request Deck
           </a>
         </div>
       )}
