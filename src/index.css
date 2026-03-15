@@ -60,7 +60,7 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', sans-serif;
   }
-  h1, h2, h3 {
+  h1, h2, h3, h4, h5, h6 {
     font-family: 'Instrument Serif', serif;
     letter-spacing: -0.02em;
     text-wrap: balance;
@@ -117,15 +117,6 @@
   }
   .btn-outline-light:hover {
     @apply border-foreground/40 text-foreground;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, sans-serif;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Instrument Serif', serif;
   }
 
   .font-mono-data {
