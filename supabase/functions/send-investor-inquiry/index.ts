@@ -10,6 +10,14 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 
+// Map common Postgres data/constraint violations to 400 so clients can fix their payload.
+// Examples:
+//  - 23514: check_violation
+//  - 23502: not_null_violation
+//  - 22001: string_data_right_truncation (value too long)
+//  - 23505: unique_violation
+const CLIENT_ERROR_CODES = new Set(["23514", "23502", "22001", "23505"]);
+
 const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
 
 const ALLOWED_ORIGINS = allowedOriginsEnv
@@ -249,9 +257,8 @@ Deno.serve(async (req) => {
       //  - 23502: not_null_violation
       //  - 22001: string_data_right_truncation (value too long)
       //  - 23505: unique_violation
-      const clientErrorCodes = new Set(["23514", "23502", "22001", "23505"]);
       const isClientError =
-        typeof insertError.code === "string" && clientErrorCodes.has(insertError.code);
+        typeof insertError.code === "string" && CLIENT_ERROR_CODES.has(insertError.code);
 
       const status = isClientError ? 400 : 500;
       const errorMessage = isClientError ? "Invalid inquiry data" : "Failed to save inquiry";
