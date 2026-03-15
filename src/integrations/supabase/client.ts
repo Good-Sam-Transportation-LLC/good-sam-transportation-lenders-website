@@ -15,7 +15,7 @@ let supabaseClient: SupabaseClient<Database> | undefined;
 // Then call:
 // const supabase = getSupabaseClient();
 
-export function getSupabaseClient() {
+export function getSupabaseClient(): SupabaseClient<Database> {
   if (!supabaseClient) {
     if (!SUPABASE_URL) {
       throw new Error("VITE_SUPABASE_URL is not set in the environment variables.");
@@ -52,5 +52,5 @@ export function getSupabaseClient() {
     });
   }
 
-  return supabaseClient;
+  return supabaseClient!;
 }
