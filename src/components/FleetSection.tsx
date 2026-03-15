@@ -46,7 +46,7 @@ const FleetSection = () => (
             <tbody>
               {vehicles.map((v) => (
                 <tr key={v.name} className="border-b border-border/50 last:border-0">
-                  <td className="px-6 py-4 font-medium text-foreground">{v.name}</td>
+                  <th scope="row" className="px-6 py-4 font-medium text-foreground">{v.name}</th>
                   <td className="data-mono px-6 py-4 text-muted-foreground">{v.year}</td>
                   <td className="data-mono px-6 py-4 text-foreground">{v.value}</td>
                   <td className="data-mono px-6 py-4 text-gold">{v.utilization}</td>
