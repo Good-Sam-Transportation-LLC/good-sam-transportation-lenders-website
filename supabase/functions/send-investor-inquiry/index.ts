@@ -188,9 +188,9 @@ Deno.serve(async (req) => {
         typeof insertError.code === "string" && clientErrorCodes.has(insertError.code);
 
       const status = isClientError ? 400 : 500;
-      const message = isClientError ? "Invalid inquiry data" : "Failed to save inquiry";
+      const errorMessage = isClientError ? "Invalid inquiry data" : "Failed to save inquiry";
 
-      return new Response(JSON.stringify({ error: message }), {
+      return new Response(JSON.stringify({ error: errorMessage }), {
         status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
