@@ -9,8 +9,6 @@ const navLinks = [
   { label: "Contact", href: "#contact" },
 ];
 
-const FIXED_HEADER_HEIGHT = 64;
-
 const SiteHeader = () => {
   const [open, setOpen] = useState(false);
 
@@ -49,7 +47,11 @@ const SiteHeader = () => {
     if (targetElement && typeof window !== "undefined") {
       event.preventDefault();
 
-      const headerOffset = FIXED_HEADER_HEIGHT;
+      const headerElement =
+        typeof document !== "undefined" ? document.getElementById("top") : null;
+      const headerOffset = headerElement
+        ? headerElement.getBoundingClientRect().height
+        : 0;
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
