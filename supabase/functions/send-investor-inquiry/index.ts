@@ -3,10 +3,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 // Basic but stricter-than-includes("@") email validation to align with DB constraint
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Max length constants aligned with DB schema:
-// - full_name, firm, and investment_interest: TEXT with length CHECK <= 200
-// - email: TEXT with length CHECK <= 320
-// - message: TEXT with length CHECK <= 2000
+// Max length configuration aligned with DB schema:
+// - full_name, firm, and investment_interest: TEXT with length CHECK <= 200 (constants below)
+// - email: TEXT with length CHECK <= 320 (validated inline where used)
+// - message: TEXT with length CHECK <= 2000 (validated inline where used)
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 
