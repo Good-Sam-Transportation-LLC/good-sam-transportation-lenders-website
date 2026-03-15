@@ -42,30 +42,36 @@ function getCorsHeaders(origin: string): HeadersInit {
   return headers;
 }
 
-function createConfigErrorResponse(): Response {
+function createConfigErrorResponse(origin?: string | null): Response {
   const body = {
     error: "Configuration error",
     message:
       "The ALLOWED_ORIGINS environment variable is not configured correctly. Please set it to a non-empty comma-separated list of origins.",
   };
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    // For configuration errors, reflect the request origin (when available)
+    // so that browser clients can see and diagnose the misconfiguration.
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+
+  if (origin) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+
   return new Response(JSON.stringify(body), {
     status: 500,
-    headers: {
-      "Content-Type": "application/json",
-      // For configuration errors, always allow any origin so that
-      // browser clients can see and diagnose the misconfiguration.
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers":
-        "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-    },
+    headers,
   });
 }
 
 Deno.serve(async (req) => {
   if (ALLOWED_ORIGINS.length === 0) {
-    return createConfigErrorResponse();
+    const origin = req.headers.get("Origin");
+    return createConfigErrorResponse(origin);
   }
 
   const origin = req.headers.get("origin") || "";
