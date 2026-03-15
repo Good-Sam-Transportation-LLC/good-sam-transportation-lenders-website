@@ -31,12 +31,24 @@ export const fadeIn: Variants = {
     y: 0,
     transition: { duration: 0.5, ease },
   },
+  // Alias for legacy animate="visible" / whileInView="visible" usage
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease },
+  },
 };
 
 // For components using `variants={staggerContainer}`
 export const staggerContainer: Variants = {
   hidden: {},
   show: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+  // Alias for legacy animate="visible" / whileInView="visible" usage
+  visible: {
     transition: {
       staggerChildren: 0.1,
     },
@@ -51,11 +63,23 @@ export const fadeUpVariants: Variants = {
     y: 0,
     transition: { duration: 0.7, ease },
   },
+  // Alias for legacy animate="visible" / whileInView="visible" usage
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease },
+  },
 };
 
 export const fadeUpAnimateVariants: Variants = {
   hidden: { opacity: 0, y: 30 },
   show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease },
+  },
+  // Alias for legacy animate="visible" / whileInView="visible" usage
+  visible: {
     opacity: 1,
     y: 0,
     transition: { duration: 0.7, ease },
