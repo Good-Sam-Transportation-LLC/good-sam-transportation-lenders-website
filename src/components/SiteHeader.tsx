@@ -1,6 +1,4 @@
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
-import { fadeIn } from "@/lib/motion";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
