@@ -90,7 +90,8 @@
     @apply rounded-xl;
   }
 
-  .data-mono {
+  .data-mono,
+  .font-mono-data {
     font-family: 'IBM Plex Mono', monospace;
     font-variant-numeric: tabular-nums;
   }
@@ -121,9 +122,6 @@
     @apply border-foreground/40 text-foreground;
   }
 
-  .font-mono-data {
-    font-family: 'IBM Plex Mono', monospace;
-  }
 }
 
 @layer utilities {
