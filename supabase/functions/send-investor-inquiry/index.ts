@@ -47,27 +47,6 @@ Deno.serve(async (req) => {
   // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
   // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
 
-  // The request body is parsed once later in the handler (after method/secret checks)
-  // inside a try/catch. Avoid parsing it here to prevent consuming the body stream twice.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // Simple abuse control: shared secret header check (mandatory)
   const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
   if (!expectedSecret) {
