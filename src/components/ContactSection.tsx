@@ -21,12 +21,14 @@ const ContactSection = () => {
 
     try {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.from("investor_inquiries").insert({
-        full_name: data.get("full_name") as string,
-        email: data.get("email") as string,
-        firm: (data.get("firm") as string) || null,
-        investment_interest: data.get("investment_interest") as string,
-        message: (data.get("message") as string) || null,
+      const { error } = await supabase.functions.invoke("send-investor-inquiry", {
+        body: {
+          full_name: data.get("full_name") as string,
+          email: data.get("email") as string,
+          firm: (data.get("firm") as string) || null,
+          investment_interest: data.get("investment_interest") as string,
+          message: (data.get("message") as string) || null,
+        },
       });
 
       if (error) throw error;
