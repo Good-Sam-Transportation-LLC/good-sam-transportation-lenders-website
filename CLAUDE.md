@@ -198,7 +198,7 @@ All animations use utilities from `src/lib/motion.ts`.
 **Variants objects** (use with a parent `staggerContainer` for staggered children):
 
 ```tsx
-<motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+<motion.div variants={staggerContainer} initial="hidden" whileInView="show" viewport={{ once: true }}>
   <motion.p variants={fadeUp}>...</motion.p>
   <motion.h2 variants={fadeUp}>...</motion.h2>
 </motion.div>
