@@ -114,7 +114,7 @@ const SiteHeader = () => {
           </a>
         </div>
       )}
-    </motion.header>
+    </header>
   );
 };
 
