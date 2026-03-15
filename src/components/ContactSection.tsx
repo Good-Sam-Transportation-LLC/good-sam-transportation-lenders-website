@@ -31,7 +31,7 @@ const ContactSection = () => {
         <motion.div
           variants={staggerContainer}
           initial="hidden"
-          whileInView="visible"
+          whileInView="show"
           viewport={{ once: true, amount: 0.3 }}
           className="mx-auto max-w-3xl"
         >

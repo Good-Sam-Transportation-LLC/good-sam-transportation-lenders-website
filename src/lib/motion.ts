@@ -15,8 +15,15 @@ export const fadeUpAnimateProps = (delay = 0) => ({
   transition: { duration: 0.7, delay, ease },
 });
 
-// Backwards-compatible Variants-based exports
-// For components using `variants={fadeIn}`
+export const stagger = (delay = 0) => ({
+  initial: { opacity: 0, y: 20 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-40px" },
+  transition: { duration: 0.5, delay, ease },
+});
+
+// Variants-based exports — all use `hidden` → `show` keys.
+// Drive with initial="hidden" animate="show" / whileInView="show".
 export const fadeIn: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: {
@@ -24,24 +31,11 @@ export const fadeIn: Variants = {
     y: 0,
     transition: { duration: 0.5, ease },
   },
-  // Alias for legacy animate="visible" / whileInView="visible" usage
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, ease },
-  },
 };
 
-// For components using `variants={staggerContainer}`
 export const staggerContainer: Variants = {
   hidden: {},
   show: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-  // Alias for legacy animate="visible" / whileInView="visible" usage
-  visible: {
     transition: {
       staggerChildren: 0.1,
     },
@@ -56,23 +50,11 @@ export const fadeUp: Variants = {
     y: 0,
     transition: { duration: 0.7, ease },
   },
-  // Alias for legacy animate="visible" / whileInView="visible" usage
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease },
-  },
 };
 
 export const fadeUpAnimate: Variants = {
   hidden: { opacity: 0, y: 30 },
   show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.7, ease },
-  },
-  // Alias for legacy animate="visible" / whileInView="visible" usage
-  visible: {
     opacity: 1,
     y: 0,
     transition: { duration: 0.7, ease },

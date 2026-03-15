@@ -11,7 +11,7 @@ const HeroSection = () => (
       <motion.div
         variants={staggerContainer}
         initial="hidden"
-        animate="visible"
+        animate="show"
         className="mx-auto max-w-4xl text-center"
       >
         <motion.div variants={fadeUp} className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-4 py-1.5 text-xs text-muted-foreground">
