@@ -81,8 +81,6 @@ const SiteHeader = () => {
           className="text-foreground md:hidden"
           onClick={() => setOpen(!open)}
           aria-label="Toggle menu"
-          aria-expanded={open}
-          aria-controls="mobile-menu"
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -90,11 +88,7 @@ const SiteHeader = () => {
 
       {/* Mobile menu */}
       {open && (
-        <div
-          id="mobile-menu"
-          role="navigation"
-          className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden"
-        >
+        <div className="border-t border-border bg-background px-6 pb-6 pt-4 md:hidden">
           {links.map((l) => (
             <a
               key={l.label}

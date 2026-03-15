@@ -1,27 +1,25 @@
 import SiteHeader from "@/components/SiteHeader";
-import Ticker from "@/components/Ticker";
 import HeroSection from "@/components/HeroSection";
-import FinancialsSection from "@/components/FinancialsSection";
+import Ticker from "@/components/Ticker";
 import MarketSection from "@/components/MarketSection";
+import FinancialsSection from "@/components/FinancialsSection";
 import FleetSection from "@/components/FleetSection";
 import InvestmentSection from "@/components/InvestmentSection";
 import ContactSection from "@/components/ContactSection";
 import SiteFooter from "@/components/SiteFooter";
 
-const Index = () => {
-  return (
-    <div className="min-h-screen bg-background pt-16">
-      <SiteHeader />
-      <Ticker />
-      <HeroSection />
-      <FinancialsSection />
-      <MarketSection />
-      <FleetSection />
-      <InvestmentSection />
-      <ContactSection />
-      <SiteFooter />
-    </div>
-  );
-};
+const Index = () => (
+  <div className="min-h-screen bg-background text-foreground">
+    <SiteHeader />
+    <HeroSection />
+    <Ticker />
+    <MarketSection />
+    <FinancialsSection />
+    <FleetSection />
+    <InvestmentSection />
+    <ContactSection />
+    <SiteFooter />
+  </div>
+);
 
 export default Index;
