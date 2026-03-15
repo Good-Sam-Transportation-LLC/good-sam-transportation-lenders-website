@@ -199,6 +199,46 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Optionally "send" the investor inquiry to an external notification endpoint
+    // so that this function does more than just persist the data.
+    const notificationEndpoint = Deno.env.get("INVESTOR_INQUIRY_WEBHOOK_URL");
+
+    if (notificationEndpoint) {
+      try {
+        const notifyResponse = await fetch(notificationEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            full_name: normalizedFullName,
+            firm: normalizedFirm,
+            email: normalizedEmail,
+            investment_interest: normalizedInvestmentInterest,
+            message: normalizedMessage,
+            created_at: new Date().toISOString(),
+          }),
+        });
+
+        if (!notifyResponse.ok) {
+          let responseBody = "";
+          try {
+            responseBody = await notifyResponse.text();
+          } catch {
+            responseBody = "<unavailable>";
+          }
+
+          console.error(
+            "Failed to send investor inquiry notification",
+            notifyResponse.status,
+            responseBody,
+          );
+        }
+      } catch (notificationError) {
+        console.error("Error while sending investor inquiry notification", notificationError);
+      }
+    }
+
     console.log(
       `New investor inquiry received - Interest: ${normalizedInvestmentInterest}`,
     );
