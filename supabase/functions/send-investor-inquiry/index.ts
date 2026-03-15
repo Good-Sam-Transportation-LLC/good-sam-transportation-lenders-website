@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 
 function getCorsHeaders(origin: string): HeadersInit {
   const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
