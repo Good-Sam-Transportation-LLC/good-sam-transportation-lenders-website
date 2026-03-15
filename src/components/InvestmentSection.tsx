@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { fadeUp } from "@/lib/motion";
+import { fadeUp, ease } from "@/lib/motion";
 
 const fundBreakdown = [
   { label: "Fleet Expansion", pct: 70, detail: "2-3 new premium vehicles" },
@@ -14,8 +14,6 @@ const riskMitigators = [
   "Low fixed overhead with variable cost structure",
   "Experienced operator with deep industry relationships",
 ];
-
-const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const InvestmentSection = () => (
   <section id="investment" className="border-t border-border py-24">

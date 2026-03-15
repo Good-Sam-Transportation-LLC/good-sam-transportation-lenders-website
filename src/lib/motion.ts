@@ -1,6 +1,6 @@
 import { type Transition } from "framer-motion";
 
-const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
+export const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 } as const,
