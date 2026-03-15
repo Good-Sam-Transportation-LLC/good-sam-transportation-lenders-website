@@ -1,4 +1,4 @@
-import { useState, useRef, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
@@ -13,7 +13,6 @@ const FIXED_HEADER_HEIGHT = 64;
 
 const SiteHeader = () => {
   const [open, setOpen] = useState(false);
-  const headerRef = useRef<HTMLElement | null>(null);
 
   const handleNavClick = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
     if (!href || href[0] !== "#") {
@@ -50,9 +49,7 @@ const SiteHeader = () => {
     if (targetElement && typeof window !== "undefined") {
       event.preventDefault();
 
-      const headerOffset =
-        (typeof window !== "undefined" && headerRef.current?.offsetHeight) ??
-        FIXED_HEADER_HEIGHT;
+      const headerOffset = FIXED_HEADER_HEIGHT;
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
@@ -77,7 +74,6 @@ const SiteHeader = () => {
 
   return (
     <header
-      ref={headerRef}
       id="top"
       className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg"
     >
