@@ -8,7 +8,6 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // - email: VARCHAR(320)
 // - message: VARCHAR(2000)
 const MAX_NAME_OR_FIRM_LENGTH = 200;
-const MAX_EMAIL_LENGTH = 320;
 const MAX_MESSAGE_LENGTH = 2000;
 
 function getCorsHeaders(origin: string): HeadersInit {
