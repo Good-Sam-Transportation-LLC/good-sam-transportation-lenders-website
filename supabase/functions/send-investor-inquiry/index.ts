@@ -53,6 +53,16 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Enforce origin allowlist for browser-originated POST requests:
+  // - If an Origin header is present but not allowed (i.e., no Access-Control-Allow-Origin set),
+  //   reject with 403 without processing the request body.
+  if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const body: unknown = await req.json();
     const { full_name, firm, email, investment_interest, message } = body as {
