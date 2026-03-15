@@ -289,6 +289,18 @@ Deno.serve(async (req) => {
     const notificationEndpoint = Deno.env.get("INVESTOR_INQUIRY_WEBHOOK_URL");
 
     if (notificationEndpoint) {
+      // Bound the webhook call with a timeout so a slow/down endpoint
+      // cannot indefinitely delay the function response.
+      const webhookTimeoutMsEnv = Deno.env.get("INVESTOR_INQUIRY_WEBHOOK_TIMEOUT_MS");
+      const webhookTimeoutMs = Number.isFinite(Number(webhookTimeoutMsEnv))
+        ? Number(webhookTimeoutMsEnv)
+        : 5000;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort("webhook timeout");
+      }, webhookTimeoutMs);
+
       try {
         const notifyResponse = await fetch(notificationEndpoint, {
           method: "POST",
@@ -303,6 +315,7 @@ Deno.serve(async (req) => {
             message: normalizedMessage,
             created_at: new Date().toISOString(),
           }),
+          signal: controller.signal,
         });
 
         if (!notifyResponse.ok) {
@@ -321,6 +334,8 @@ Deno.serve(async (req) => {
         }
       } catch (notificationError) {
         console.error("Error while sending investor inquiry notification", notificationError);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 
