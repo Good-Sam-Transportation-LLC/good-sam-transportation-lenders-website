@@ -4,10 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Max length constants aligned with DB schema:
-// - full_name and firm: VARCHAR(200)
+// - full_name, firm, and investment_interest: VARCHAR(200)
 // - email: VARCHAR(320)
 // - message: VARCHAR(2000)
 const MAX_NAME_OR_FIRM_LENGTH = 200;
+const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 const MAX_MESSAGE_LENGTH = 2000;
 
 function getCorsHeaders(origin: string): HeadersInit {
@@ -140,6 +141,21 @@ Deno.serve(async (req) => {
     const normalizedInvestmentInterest = investment_interest.trim();
     const normalizedMessage =
       typeof message === "string" && message.trim().length > 0 ? message.trim() : null;
+
+    // Validate investment_interest after trimming (DB constraint: 1–200 chars)
+    if (normalizedInvestmentInterest.length === 0) {
+      return new Response(JSON.stringify({ error: "Investment interest is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (normalizedInvestmentInterest.length > MAX_INVESTMENT_INTEREST_LENGTH) {
+      return new Response(JSON.stringify({ error: "Investment interest exceeds maximum length" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Length validation aligned with DB constraints:
     // full_name/firm up to 200, email up to 320, message up to 2000
