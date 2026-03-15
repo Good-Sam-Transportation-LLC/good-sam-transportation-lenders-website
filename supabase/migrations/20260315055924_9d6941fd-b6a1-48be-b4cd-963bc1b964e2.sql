@@ -30,10 +30,7 @@ CREATE POLICY investor_inquiries_insert_authenticated
   TO authenticated
   WITH CHECK (true);
 
--- Allow insert-only access for anonymous users
-CREATE POLICY investor_inquiries_insert_anon
-  ON public.investor_inquiries
-  AS PERMISSIVE
-  FOR INSERT
-  TO anon
-  WITH CHECK (true);
+-- Anonymous insert policy intentionally omitted.
+-- Public form submissions should be handled via a secure backend
+-- (e.g., edge function using the service-role key) rather than
+-- granting direct insert privileges to the anon role.
