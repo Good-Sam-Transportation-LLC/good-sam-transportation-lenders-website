@@ -52,9 +52,6 @@ const SiteHeader = () => {
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
-      
-      
-
       const prefersReducedMotion =
         typeof window.matchMedia === "function" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
