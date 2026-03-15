@@ -10,13 +10,32 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 
-function getCorsHeaders(origin: string): HeadersInit {
-  const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
-  const allowedOrigins = allowedOriginsEnv
-    .split(",")
-    .map((o) => o.trim())
-    .filter((o) => o.length > 0);
+const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS");
 
+if (!allowedOriginsEnv) {
+  console.error(
+    "Environment variable ALLOWED_ORIGINS must be set to a non-empty comma-separated list of origins.",
+  );
+  throw new Error(
+    "Configuration error: ALLOWED_ORIGINS is not set or empty.",
+  );
+}
+
+const ALLOWED_ORIGINS = allowedOriginsEnv
+  .split(",")
+  .map((o) => o.trim())
+  .filter((o) => o.length > 0);
+
+if (ALLOWED_ORIGINS.length === 0) {
+  console.error(
+    "Environment variable ALLOWED_ORIGINS resolved to an empty list after parsing. Please configure at least one allowed origin.",
+  );
+  throw new Error(
+    "Configuration error: ALLOWED_ORIGINS resolves to an empty origin list.",
+  );
+}
+
+function getCorsHeaders(origin: string): HeadersInit {
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -24,7 +43,7 @@ function getCorsHeaders(origin: string): HeadersInit {
     "Vary": "Origin",
   };
 
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     headers["Access-Control-Allow-Origin"] = origin;
   }
 
