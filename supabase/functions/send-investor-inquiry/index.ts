@@ -31,6 +31,19 @@ const ALLOWED_ORIGINS = allowedOriginsEnv
   .map((o) => o.trim())
   .filter((o) => o.length > 0);
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+const supabase =
+  supabaseUrl && supabaseServiceRoleKey
+    ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null;
+
 const INVESTOR_INQUIRY_API_SECRET =
   Deno.env.get("INVESTOR_INQUIRY_API_SECRET") ?? "";
 
@@ -253,18 +266,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabase) {
       console.error("Service misconfigured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing");
       return new Response(JSON.stringify({ error: "Service misconfigured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const { error: insertError } = await supabase.from("investor_inquiries").insert({
       full_name: normalizedFullName,
