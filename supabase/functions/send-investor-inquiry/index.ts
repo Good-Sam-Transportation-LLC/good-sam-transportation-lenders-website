@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
-import { timingSafeEqual } from "https://deno.land/std@0.224.0/crypto/timing_safe_equal.ts";
 
 // Basic but stricter-than-includes("@") email validation to align with DB constraint
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
