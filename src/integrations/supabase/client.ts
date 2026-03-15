@@ -1,7 +1,7 @@
 // This file was originally generated but is now maintained manually.
-import { createClient } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from './types';
+import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./types";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -18,21 +18,21 @@ let supabaseClient: SupabaseClient<Database> | undefined;
 export function getSupabaseClient() {
   if (!supabaseClient) {
     if (!SUPABASE_URL) {
-      throw new Error('VITE_SUPABASE_URL is not set in the environment variables.');
+      throw new Error("VITE_SUPABASE_URL is not set in the environment variables.");
     }
 
     if (!SUPABASE_PUBLISHABLE_KEY) {
-      throw new Error('VITE_SUPABASE_PUBLISHABLE_KEY is not set in the environment variables.');
+      throw new Error("VITE_SUPABASE_PUBLISHABLE_KEY is not set in the environment variables.");
     }
 
     let storage: Storage | undefined;
     let persistSession = true;
 
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       try {
         storage = window.localStorage;
-        const testKey = '__supabase_auth_test__';
-        window.localStorage.setItem(testKey, '1');
+        const testKey = "__supabase_auth_test__";
+        window.localStorage.setItem(testKey, "1");
         window.localStorage.removeItem(testKey);
       } catch {
         storage = undefined;
