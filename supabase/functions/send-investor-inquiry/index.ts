@@ -149,17 +149,17 @@ Deno.serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Service misconfigured: SUPABASE_URL or SUPABASE_ANON_KEY is missing");
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error("Service misconfigured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing");
       return new Response(JSON.stringify({ error: "Service misconfigured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const { error: insertError } = await supabase.from("investor_inquiries").insert({
       full_name: normalizedFullName,
