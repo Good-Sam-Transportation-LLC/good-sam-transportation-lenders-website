@@ -45,21 +45,21 @@ const ContactSection = () => {
               <form onSubmit={handleSubmit} className="glass-card space-y-4 p-6 md:p-8">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Full Name</label>
-                    <input required type="text" maxLength={100} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                    <label htmlFor="contact-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">Full Name</label>
+                    <input id="contact-name" required type="text" maxLength={100} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Firm / Organization</label>
-                    <input type="text" maxLength={100} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                    <label htmlFor="contact-firm" className="mb-1.5 block text-xs font-medium text-muted-foreground">Firm / Organization</label>
+                    <input id="contact-firm" type="text" maxLength={100} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email Address</label>
-                  <input required type="email" maxLength={255} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                  <label htmlFor="contact-email" className="mb-1.5 block text-xs font-medium text-muted-foreground">Email Address</label>
+                  <input id="contact-email" required type="email" maxLength={255} className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Investment Interest</label>
-                  <select className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20">
+                  <label htmlFor="contact-interest" className="mb-1.5 block text-xs font-medium text-muted-foreground">Investment Interest</label>
+                  <select id="contact-interest" className="w-full rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20">
                     <option>Asset-Backed Lending</option>
                     <option>Equity Partnership</option>
                     <option>Convertible Note</option>
@@ -67,8 +67,8 @@ const ContactSection = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Message (Optional)</label>
-                  <textarea rows={3} maxLength={1000} className="w-full resize-none rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
+                  <label htmlFor="contact-message" className="mb-1.5 block text-xs font-medium text-muted-foreground">Message (Optional)</label>
+                  <textarea id="contact-message" rows={3} maxLength={1000} className="w-full resize-none rounded-md border border-border bg-secondary px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-gold/50 focus:ring-1 focus:ring-gold/20" />
                 </div>
                 <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-all hover:brightness-110">
                   Submit Inquiry <ArrowRight className="h-4 w-4" />
