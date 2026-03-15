@@ -105,7 +105,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     // Handle CORS preflight
     if (!("Access-Control-Allow-Origin" in corsHeaders)) {
-      return new Response("Forbidden", { status: 403 });
+      const errorHeaders = createCorsHeaders({
+        origin,
+        allowAnyOrigin: false,
+        includeContentType: true,
+      });
+
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: errorHeaders,
+      });
     }
     return new Response(null, { headers: corsHeaders });
   }
