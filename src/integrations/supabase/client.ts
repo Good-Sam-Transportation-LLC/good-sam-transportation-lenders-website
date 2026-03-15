@@ -7,10 +7,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 let supabaseClient: SupabaseClient<Database> | undefined;
-const authStorage = typeof window !== 'undefined' ? window.localStorage : undefined;
 
 // Import the supabase client like this:
 // import { getSupabaseClient } from "@/integrations/supabase/client";
+//
 //
 // Then call:
 // const supabase = getSupabaseClient();
@@ -25,10 +25,28 @@ export function getSupabaseClient() {
       throw new Error('VITE_SUPABASE_PUBLISHABLE_KEY is not set in the environment variables.');
     }
 
+    let storage: Storage | undefined;
+    let persistSession = true;
+
+    if (typeof window !== 'undefined') {
+      try {
+        storage = window.localStorage;
+        const testKey = '__supabase_auth_test__';
+        window.localStorage.setItem(testKey, '1');
+        window.localStorage.removeItem(testKey);
+      } catch {
+        storage = undefined;
+        persistSession = false;
+      }
+    } else {
+      storage = undefined;
+      persistSession = false;
+    }
+
     supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       auth: {
-        storage: authStorage,
-        persistSession: true,
+        storage,
+        persistSession,
         autoRefreshToken: true,
       }
     });
