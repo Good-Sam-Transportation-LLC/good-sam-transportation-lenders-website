@@ -31,9 +31,13 @@ const SiteHeader = () => {
       const rect = targetElement.getBoundingClientRect();
       const scrollTop = window.scrollY + rect.top - headerOffset;
 
+      const prefersReducedMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
       window.scrollTo({
         top: scrollTop,
-        behavior: "smooth",
+        behavior: prefersReducedMotion ? "auto" : "smooth",
       });
 
       try {
