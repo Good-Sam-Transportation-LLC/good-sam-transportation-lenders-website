@@ -71,7 +71,7 @@ const ContactSection = () => {
                   placeholder="e.g. Equity, Debt, Co-investment"
                   className="mt-1 bg-secondary border-border"
                   required
-                  maxLength={255}
+                  maxLength={200}
                 />
               </div>
             </div>
