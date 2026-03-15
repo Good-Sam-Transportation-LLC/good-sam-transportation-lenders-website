@@ -64,10 +64,6 @@ const ContactSection = () => {
                 <Input id="firm" name="firm" placeholder="Acme Capital Partners" className="mt-1 bg-secondary border-border" />
               </div>
               <div>
-                <Label htmlFor="role" className="text-xs text-muted-foreground">Title</Label>
-                <Input id="role" name="role" placeholder="Managing Partner" className="mt-1 bg-secondary border-border" />
-              </div>
-              <div>
                 <Label htmlFor="investment_interest" className="text-xs text-muted-foreground">Investment Interest</Label>
                 <Input
                   id="investment_interest"
