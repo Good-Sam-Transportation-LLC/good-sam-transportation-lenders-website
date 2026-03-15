@@ -101,7 +101,7 @@ const SiteHeader = () => {
         >
           {navLinks.map((l) => (
             <a
-              key={l.label}
+              key={l.href}
               href={l.href}
               onClick={(event) => handleNavClick(event, l.href)}
               className="block py-2 text-sm text-muted-foreground"
