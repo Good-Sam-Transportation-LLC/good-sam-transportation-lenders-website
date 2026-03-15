@@ -22,11 +22,11 @@ CREATE TABLE public.investor_inquiries (
 -- Enable RLS
 ALTER TABLE public.investor_inquiries ENABLE ROW LEVEL SECURITY;
 
--- Allow anonymous inserts (public form, no auth required)
+-- Allow inserts from authenticated users
 CREATE POLICY "Allow anonymous inserts"
 ON public.investor_inquiries
 FOR INSERT
-TO anon
+TO authenticated
 WITH CHECK (
   full_name IS NOT NULL
   AND length(full_name) BETWEEN 1 AND 200
