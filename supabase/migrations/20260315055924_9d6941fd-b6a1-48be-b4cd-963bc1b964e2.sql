@@ -38,3 +38,20 @@ WITH CHECK (
   AND (firm IS NULL OR length(firm) <= 200)
   AND (message IS NULL OR length(message) <= 2000)
 );
+
+-- Allow inserts from anon (public) clients with the same strict checks
+CREATE POLICY "Allow anon inserts"
+ON public.investor_inquiries
+FOR INSERT
+TO anon
+WITH CHECK (
+  full_name IS NOT NULL
+  AND length(full_name) BETWEEN 1 AND 200
+  AND email IS NOT NULL
+  AND length(email) BETWEEN 3 AND 320
+  AND email ~* '^[^@\s]+@^[^@\s]+\.[^@\s]+$'
+  AND investment_interest IS NOT NULL
+  AND length(investment_interest) BETWEEN 1 AND 200
+  AND (firm IS NULL OR length(firm) <= 200)
+  AND (message IS NULL OR length(message) <= 2000)
+);
