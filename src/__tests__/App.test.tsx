@@ -10,7 +10,7 @@ vi.mock("framer-motion", () => ({
       get: (_target: unknown, prop: string) =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         React.forwardRef((props: Record<string, any>, ref: any) => {
-          const { variants, initial, animate, whileInView, viewport, transition, ...rest } = props;
+          const { variants: _variants, initial: _initial, animate: _animate, whileInView: _whileInView, viewport: _viewport, transition: _transition, ...rest } = props;
           return React.createElement(String(prop), { ...rest, ref });
         }),
     }
