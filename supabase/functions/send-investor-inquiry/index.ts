@@ -10,28 +10,20 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 
-const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS");
-
-if (!allowedOriginsEnv) {
-  console.error(
-    "Environment variable ALLOWED_ORIGINS must be set to a non-empty comma-separated list of origins.",
-  );
-  throw new Error(
-    "Configuration error: ALLOWED_ORIGINS is not set or empty.",
-  );
-}
+const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
 
 const ALLOWED_ORIGINS = allowedOriginsEnv
   .split(",")
   .map((o) => o.trim())
   .filter((o) => o.length > 0);
 
-if (ALLOWED_ORIGINS.length === 0) {
+if (!allowedOriginsEnv) {
   console.error(
-    "Environment variable ALLOWED_ORIGINS resolved to an empty list after parsing. Please configure at least one allowed origin.",
+    "Environment variable ALLOWED_ORIGINS is not set. No origins will be allowed. Requests will receive a configuration error response until this is configured.",
   );
-  throw new Error(
-    "Configuration error: ALLOWED_ORIGINS resolves to an empty origin list.",
+} else if (ALLOWED_ORIGINS.length === 0) {
+  console.error(
+    "Environment variable ALLOWED_ORIGINS resolved to an empty list after parsing. Please configure at least one allowed origin. Requests will receive a configuration error response until this is corrected.",
   );
 }
 
@@ -50,7 +42,26 @@ function getCorsHeaders(origin: string): HeadersInit {
   return headers;
 }
 
+function createConfigErrorResponse(): Response {
+  const body = {
+    error: "Configuration error",
+    message:
+      "The ALLOWED_ORIGINS environment variable is not configured correctly. Please set it to a non-empty comma-separated list of origins.",
+  };
+
+  return new Response(JSON.stringify(body), {
+    status: 500,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 Deno.serve(async (req) => {
+  if (ALLOWED_ORIGINS.length === 0) {
+    return createConfigErrorResponse();
+  }
+
   const origin = req.headers.get("origin") || "";
   const corsHeaders = getCorsHeaders(origin);
 
