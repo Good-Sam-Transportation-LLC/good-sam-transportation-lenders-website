@@ -4,9 +4,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Max length constants aligned with DB schema:
-// - full_name, firm, and investment_interest: VARCHAR(200)
-// - email: VARCHAR(320)
-// - message: VARCHAR(2000)
+// - full_name, firm, and investment_interest: TEXT with length CHECK <= 200
+// - email: TEXT with length CHECK <= 320
+// - message: TEXT with length CHECK <= 2000
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 
