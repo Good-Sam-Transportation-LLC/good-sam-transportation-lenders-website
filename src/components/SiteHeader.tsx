@@ -107,7 +107,7 @@ const SiteHeader = () => {
           ))}
           <a
             href="#contact"
-            onClick={() => setOpen(false)}
+            onClick={(event) => handleNavClick(event, "#contact")}
             className="mt-3 block rounded-sm bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground"
           >
             Request Pitch Deck
