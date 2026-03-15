@@ -79,17 +79,25 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Optional API key check for additional protection against automated abuse.
-  // If INQUIRY_API_KEY is set, require clients to send the same value in the `x-api-key` header.
+  // Required API key check for protection against automated abuse and to ensure this
+  // function is not exposed with only Origin-based gating. INQUIRY_API_KEY must be set
+  // in the environment, and clients must send the same value in the `x-api-key` header.
   const requiredApiKey = Deno.env.get("INQUIRY_API_KEY");
-  if (requiredApiKey) {
-    const providedApiKey = req.headers.get("x-api-key") ?? "";
-    if (providedApiKey !== requiredApiKey) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
+  if (!requiredApiKey) {
+    return new Response(
+      JSON.stringify({ error: "Server misconfiguration: INQUIRY_API_KEY not set" }),
+      {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      },
+    );
+  }
+  const providedApiKey = req.headers.get("x-api-key") ?? "";
+  if (providedApiKey !== requiredApiKey) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
