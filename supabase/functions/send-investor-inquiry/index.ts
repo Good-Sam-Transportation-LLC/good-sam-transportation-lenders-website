@@ -50,14 +50,27 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Enforce origin allowlist: reject any POST that does not carry an allowed Origin header.
-  // This covers both an absent Origin (non-browser / direct HTTP clients) and a present
-  // Origin that is not in the allowlist, preventing endpoint abuse from outside the site.
+  // Enforce origin allowlist for browser clients: reject any POST that does not carry an
+  // allowed Origin header. This is a CORS control, not a security boundary, and is
+  // complemented by the API key check below when configured.
   if (!("Access-Control-Allow-Origin" in corsHeaders)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Optional API key check for additional protection against automated abuse.
+  // If INQUIRY_API_KEY is set, require clients to send the same value in the `x-api-key` header.
+  const requiredApiKey = Deno.env.get("INQUIRY_API_KEY");
+  if (requiredApiKey) {
+    const providedApiKey = req.headers.get("x-api-key") ?? "";
+    if (providedApiKey !== requiredApiKey) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   }
 
   try {
