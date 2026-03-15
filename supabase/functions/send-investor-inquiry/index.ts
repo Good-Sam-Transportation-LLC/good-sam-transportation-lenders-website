@@ -53,6 +53,12 @@ function createConfigErrorResponse(): Response {
     status: 500,
     headers: {
       "Content-Type": "application/json",
+      // For configuration errors, always allow any origin so that
+      // browser clients can see and diagnose the misconfiguration.
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers":
+        "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
   });
 }
