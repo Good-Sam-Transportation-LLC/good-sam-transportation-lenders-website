@@ -1,3 +1,5 @@
+import type { Variants } from "framer-motion";
+
 export const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export const fadeUp = (delay = 0) => ({
@@ -19,3 +21,43 @@ export const stagger = (delay = 0) => ({
   viewport: { once: true, margin: "-40px" },
   transition: { duration: 0.5, delay, ease },
 });
+
+// Backwards-compatible Variants-based exports
+// For components using `variants={fadeIn}`
+export const fadeIn: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease },
+  },
+};
+
+// For components using `variants={staggerContainer}`
+export const staggerContainer: Variants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+// Variants approximating the behavior of fadeUp helpers
+export const fadeUpVariants: Variants = {
+  hidden: { opacity: 0, y: 30 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease },
+  },
+};
+
+export const fadeUpAnimateVariants: Variants = {
+  hidden: { opacity: 0, y: 30 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease },
+  },
+};
