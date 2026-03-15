@@ -126,9 +126,9 @@ const data = [{ id: 1, label: "Example", value: "$100K" }];
 const MySection = () => (
   <section id="my-section" className="py-20 ...">
     <div className="section-container">
-      <motion.h2 {...fadeUpAnimate(0.1)}>Title</motion.h2>
+      <motion.h2 {...fadeUpAnimateProps(0.1)}>Title</motion.h2>
       {data.map((item) => (
-        <motion.div key={item.id} {...fadeUp(0.2)}>
+        <motion.div key={item.id} {...fadeUpProps(0.2)}>
           {item.label}: {item.value}
         </motion.div>
       ))}
@@ -168,7 +168,7 @@ Use `@/` for all imports from `src/`:
 
 ```ts
 import { cn } from "@/lib/utils";
-import { fadeUp } from "@/lib/motion";
+import { fadeUpProps } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 ```
 
@@ -185,15 +185,26 @@ import { Button } from "@/components/ui/button";
 
 All animations use utilities from `src/lib/motion.ts`.
 
+**Props-spread helpers** (pass all motion props via spread — use these for standalone animated elements):
+
 ```ts
 // Scroll-triggered (fires when element enters viewport)
-<motion.div {...fadeUp(delay)}>
+<motion.div {...fadeUpProps(delay)}>
 
 // Mount animation (fires immediately on render)
-<motion.div {...fadeUpAnimate(delay)}>
+<motion.div {...fadeUpAnimateProps(delay)}>
 ```
 
-Both accept an optional `delay` (seconds). The easing curve is `[0.16, 1, 0.3, 1]` throughout the app — do not change this for consistency.
+**Variants objects** (use with a parent `staggerContainer` for staggered children):
+
+```tsx
+<motion.div variants={staggerContainer} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+  <motion.p variants={fadeUp}>...</motion.p>
+  <motion.h2 variants={fadeUp}>...</motion.h2>
+</motion.div>
+```
+
+Both helpers accept an optional `delay` (seconds). The easing curve is `[0.16, 1, 0.3, 1]` throughout the app — do not change this for consistency.
 
 Scroll-triggered animations use `viewport: { once: true, margin: "-60px" }` — they fire once and don't repeat.
 
@@ -269,7 +280,7 @@ describe("MyComponent", () => {
 | `src/pages/Index.tsx` | Main page — assembles all sections |
 | `src/index.css` | Global styles, CSS custom properties, utility classes |
 | `src/lib/utils.ts` | `cn()` — Tailwind class merging helper |
-| `src/lib/motion.ts` | `fadeUp()`, `fadeUpAnimate()` — animation presets |
+| `src/lib/motion.ts` | `fadeUpProps()`, `fadeUpAnimateProps()` — scroll/mount animation prop helpers; `fadeUp`, `staggerContainer` — Variants objects for staggered animations |
 | `src/hooks/use-mobile.tsx` | `useIsMobile()` — responsive breakpoint hook |
 | `tailwind.config.ts` | Theme tokens, custom colors, fonts, animations |
 | `vite.config.ts` | Build config: port 8080, `@` alias, SWC, lovable-tagger |
