@@ -20,7 +20,7 @@ const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 const CLIENT_ERROR_CODES = new Set(["23514", "23502", "22001", "23505"]);
 
 const CORS_ALLOWED_HEADERS =
-  "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key";
+  "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version";
 
 const CORS_ALLOWED_METHODS = "POST, OPTIONS";
 const CORS_VARY_HEADER_VALUE = "Origin";
@@ -134,33 +134,6 @@ Deno.serve(async (req) => {
   if (origin && !("Access-Control-Allow-Origin" in corsHeaders)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Required API key check for protection against automated abuse and to ensure this
-  // function is not exposed with only Origin-based gating. INQUIRY_API_KEY must be set
-  // in the environment, and clients must send the same value in the `x-api-key` header.
-  const requiredApiKey = Deno.env.get("INQUIRY_API_KEY");
-  if (!requiredApiKey) {
-    return new Response(
-      JSON.stringify({ error: "Server misconfiguration: INQUIRY_API_KEY not set" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
-  }
-  const providedApiKey = req.headers.get("x-api-key") ?? "";
-  const encoder = new TextEncoder();
-  const requiredKeyBytes = encoder.encode(requiredApiKey);
-  const providedKeyBytes = encoder.encode(providedApiKey);
-  if (
-    providedKeyBytes.length !== requiredKeyBytes.length ||
-    !timingSafeEqual(providedKeyBytes, requiredKeyBytes)
-  ) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
