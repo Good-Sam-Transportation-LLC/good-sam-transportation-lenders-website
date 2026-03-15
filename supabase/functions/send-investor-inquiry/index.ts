@@ -47,27 +47,6 @@ Deno.serve(async (req) => {
   // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
   // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
 
-  // The request body is parsed once later in the handler (after method/secret checks)
-  // inside a try/catch. Avoid parsing it here to prevent consuming the body stream twice.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   // Simple abuse control: shared secret header check (mandatory)
   const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
   if (!expectedSecret) {
@@ -92,18 +71,8 @@ Deno.serve(async (req) => {
     });
   }
 
-  let body: unknown;
   try {
-    body = await req.json();
-  } catch (err) {
-    console.error("Invalid JSON payload:", err);
-    return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  try {
+    const body: unknown = await req.json();
     const { full_name, firm, email, investment_interest, message } = body as {
       full_name?: unknown;
       firm?: unknown;
@@ -239,6 +208,13 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    if (err instanceof SyntaxError) {
+      console.error("Invalid JSON payload:", err);
+      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("Unexpected error:", err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
