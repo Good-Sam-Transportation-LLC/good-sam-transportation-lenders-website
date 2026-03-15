@@ -47,25 +47,25 @@ Deno.serve(async (req) => {
   // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
   // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
 
-  // Parse and validate request payload
-  const body = await req.json();
-  const { message } = body ?? {};
+  // The request body is parsed once later in the handler (after method/secret checks)
+  // inside a try/catch. Avoid parsing it here to prevent consuming the body stream twice.
 
-  if (typeof message === "string" && message.length > MAX_MESSAGE_LENGTH) {
-    return new Response(
-      JSON.stringify({
-        error: "Message is too long",
-        maxLength: MAX_MESSAGE_LENGTH,
-      }),
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   // Simple abuse control: shared secret header check (mandatory)
