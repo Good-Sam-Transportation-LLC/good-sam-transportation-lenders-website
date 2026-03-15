@@ -9,7 +9,6 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // - message: VARCHAR(2000)
 const MAX_NAME_OR_FIRM_LENGTH = 200;
 const MAX_INVESTMENT_INTEREST_LENGTH = 200;
-const MAX_MESSAGE_LENGTH = 2000;
 
 function getCorsHeaders(origin: string): HeadersInit {
   const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
