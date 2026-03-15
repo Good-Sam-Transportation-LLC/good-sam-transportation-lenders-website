@@ -65,6 +65,14 @@ Deno.serve(async (req) => {
 
   try {
     const body: unknown = await req.json();
+
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { full_name, firm, email, investment_interest, message } = body as {
       full_name?: unknown;
       firm?: unknown;
