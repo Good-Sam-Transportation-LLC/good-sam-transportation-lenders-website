@@ -32,12 +32,19 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Enforce allowed origins for non-preflight requests
-  if (!("Access-Control-Allow-Origin" in corsHeaders)) {
-    return new Response("Forbidden", { status: 403 });
-  }
+  // Note: Do not use CORS headers / Origin as an authentication or authorization mechanism.
+  // CORS is enforced by browsers; non-browser clients may legitimately call this endpoint.
 
-  // Require POST for actual requests
+
+  // Simple abuse control: shared secret header check (mandatory)
+  const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
+  if (!expectedSecret) {
+    console.error("INVESTOR_INQUIRY_SECRET is not configured; refusing to process request.");
+    return new Response(JSON.stringify({ error: "Service misconfigured" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -45,16 +52,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Simple abuse control: shared secret header check
-  const expectedSecret = Deno.env.get("INVESTOR_INQUIRY_SECRET");
-  if (expectedSecret) {
-    const providedSecret = req.headers.get("x-investor-inquiry-secret");
-    if (providedSecret !== expectedSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+  const providedSecret = req.headers.get("x-investor-inquiry-secret");
+  if (providedSecret !== expectedSecret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
