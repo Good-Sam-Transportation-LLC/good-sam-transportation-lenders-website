@@ -1,5 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.99.1";
 
+// Basic but stricter-than-includes("@") email validation to align with DB constraint
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function getCorsHeaders(origin: string): HeadersInit {
   const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
   const allowedOrigins = allowedOriginsEnv
@@ -80,19 +83,21 @@ Deno.serve(async (req) => {
       message?: unknown;
     };
 
-    // Validate required fields
+    // Validate required fields and normalize values
     if (!full_name || typeof full_name !== "string" || full_name.trim().length === 0) {
       return new Response(JSON.stringify({ error: "Full name is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!email || typeof email !== "string" || !email.includes("@")) {
+
+    if (!email || typeof email !== "string") {
       return new Response(JSON.stringify({ error: "Valid email is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
     if (!investment_interest || typeof investment_interest !== "string") {
       return new Response(JSON.stringify({ error: "Investment interest is required" }), {
         status: 400,
@@ -100,14 +105,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Length validation
-    if (
-      full_name.length > 100 ||
-      (firm && firm.length > 100) ||
-      email.length > 255 ||
-      (message && message.length > 1000)
-    ) {
-      return new Response(JSON.stringify({ error: "Input exceeds maximum length" }), {
+    const normalizedFullName = full_name.trim();
+    const normalizedFirm =
+      typeof firm === "string" && firm.trim().length > 0 ? firm.trim() : null;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedInvestmentInterest = investment_interest.trim();
+    const normalizedMessage =
+      typeof message === "string" && message.trim().length > 0 ? message.trim() : null;
+
+    // Length validation aligned with DB constraints:
+    // full_name/firm up to 200, email up to 320, message up to 2000
+    if (normalizedFullName.length > 200) {
+      return new Response(JSON.stringify({ error: "Full name exceeds maximum length" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (normalizedFirm && normalizedFirm.length > 200) {
+      return new Response(JSON.stringify({ error: "Firm exceeds maximum length" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (normalizedEmail.length === 0 || normalizedEmail.length > 320 || !emailRegex.test(normalizedEmail)) {
+      return new Response(JSON.stringify({ error: "Valid email is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (normalizedMessage && normalizedMessage.length > 2000) {
+      return new Response(JSON.stringify({ error: "Message exceeds maximum length" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -118,11 +148,11 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { error: insertError } = await supabase.from("investor_inquiries").insert({
-      full_name: full_name.trim(),
-      firm: firm?.trim() || null,
-      email: email.trim().toLowerCase(),
-      investment_interest: investment_interest.trim(),
-      message: message?.trim() || null,
+      full_name: normalizedFullName,
+      firm: normalizedFirm,
+      email: normalizedEmail,
+      investment_interest: normalizedInvestmentInterest,
+      message: normalizedMessage,
     });
 
     if (insertError) {
@@ -134,7 +164,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `New investor inquiry from ${full_name} (${email}) - Interest: ${investment_interest}`,
+      `New investor inquiry from ${normalizedFullName} (${normalizedEmail}) - Interest: ${normalizedInvestmentInterest}`,
     );
 
     return new Response(JSON.stringify({ success: true }), {
