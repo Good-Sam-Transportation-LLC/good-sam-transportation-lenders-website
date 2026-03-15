@@ -12,6 +12,38 @@ const links = [
 const SiteHeader = () => {
   const [open, setOpen] = useState(false);
 
+  const handleNavClick = (event: any, href: string) => {
+    if (!href || href[0] !== "#") {
+      return;
+    }
+
+    event.preventDefault();
+
+    const targetId = href.slice(1);
+    const targetElement = typeof document !== "undefined" ? document.getElementById(targetId) : null;
+
+    // Header height is h-16 (4rem), which is 64px with a base font size of 16px.
+    const HEADER_OFFSET = 64;
+
+    if (targetElement && typeof window !== "undefined") {
+      const rect = targetElement.getBoundingClientRect();
+      const scrollTop = window.scrollY + rect.top - HEADER_OFFSET;
+
+      window.scrollTo({
+        top: scrollTop,
+        behavior: "smooth",
+      });
+
+      try {
+        window.history.replaceState(null, "", href);
+      } catch {
+        window.location.hash = href;
+      }
+    }
+
+    setOpen(false);
+  };
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg">
       <div className="section-container flex h-16 items-center justify-between">
@@ -25,6 +57,7 @@ const SiteHeader = () => {
             <a
               key={l.label}
               href={l.href}
+              onClick={(event) => handleNavClick(event, l.href)}
               className="text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
             >
               {l.label}
@@ -32,6 +65,7 @@ const SiteHeader = () => {
           ))}
           <a
             href="#contact"
+            onClick={(event) => handleNavClick(event, "#contact")}
             className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground transition-all hover:brightness-110"
           >
             Request Deck
@@ -55,7 +89,7 @@ const SiteHeader = () => {
             <a
               key={l.label}
               href={l.href}
-              onClick={() => setOpen(false)}
+              onClick={(event) => handleNavClick(event, l.href)}
               className="block py-2 text-sm text-muted-foreground"
             >
               {l.label}
