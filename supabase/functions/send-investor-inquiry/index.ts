@@ -18,6 +18,11 @@ const MAX_INVESTMENT_INTEREST_LENGTH = 200;
 //  - 23505: unique_violation
 const CLIENT_ERROR_CODES = new Set(["23514", "23502", "22001", "23505"]);
 
+const CORS_ALLOWED_HEADERS =
+  "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key";
+
+const CORS_ALLOWED_METHODS = "POST, OPTIONS";
+
 const allowedOriginsEnv = Deno.env.get("ALLOWED_ORIGINS") ?? "";
 
 const ALLOWED_ORIGINS = allowedOriginsEnv
@@ -37,9 +42,8 @@ if (!allowedOriginsEnv) {
 
 function getCorsHeaders(origin: string): HeadersInit {
   const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": CORS_ALLOWED_HEADERS,
+    "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
     "Vary": "Origin",
   };
 
@@ -61,9 +65,8 @@ function createConfigErrorResponse(origin?: string | null): Response {
     "Content-Type": "application/json",
     // For configuration errors, reflect the request origin (when available)
     // so that browser clients can see and diagnose the misconfiguration.
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-api-key",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": CORS_ALLOWED_HEADERS,
+    "Access-Control-Allow-Methods": CORS_ALLOWED_METHODS,
     "Vary": "Origin",
   };
 
