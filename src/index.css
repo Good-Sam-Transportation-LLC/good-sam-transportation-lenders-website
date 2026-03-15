@@ -104,6 +104,15 @@
     .ticker-scroll {
       animation: none;
     }
+
+    .btn-gold {
+      transition: none;
+    }
+
+    .btn-gold:hover {
+      transform: none;
+      transition: none;
+    }
   }
 
   .btn-gold {
