@@ -225,3 +225,68 @@ describe("Auto test generation", () => {
     expect(content).toContain('@/');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Group 6: Workflow Self-Healing
+// ---------------------------------------------------------------------------
+describe("Workflow self-healing", () => {
+  it("workflow-autofix.yml exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/workflow-autofix.yml"))).toBe(true);
+  });
+
+  it("workflow-autofix triggers on workflow_run completion", () => {
+    const content = readText(".github/workflows/workflow-autofix.yml");
+    const parsed = parse(content);
+    expect(parsed.on).toHaveProperty("workflow_run");
+  });
+
+  it("workflow-autofix only runs on failure", () => {
+    const content = readText(".github/workflows/workflow-autofix.yml");
+    expect(content).toContain("failure");
+  });
+
+  it("workflow-autofix uses Codex to diagnose and fix", () => {
+    const content = readText(".github/workflows/workflow-autofix.yml");
+    expect(content).toContain("@openai/codex");
+  });
+
+  it("workflow-autofix commits fixes automatically", () => {
+    const content = readText(".github/workflows/workflow-autofix.yml");
+    expect(content).toContain("git commit");
+    expect(content).toContain("Auto-fix");
+  });
+
+  it("workflow-test-runner.yml exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/workflow-test-runner.yml"))).toBe(true);
+  });
+
+  it("workflow-test-runner triggers on workflow file changes", () => {
+    const content = readText(".github/workflows/workflow-test-runner.yml");
+    expect(content).toContain(".github/workflows/*.yml");
+  });
+
+  it("workflow-test-runner runs generate-workflow-tests.sh", () => {
+    const content = readText(".github/workflows/workflow-test-runner.yml");
+    expect(content).toContain("generate-workflow-tests.sh");
+  });
+
+  it("workflow-test-runner commits generated tests", () => {
+    const content = readText(".github/workflows/workflow-test-runner.yml");
+    expect(content).toContain("git commit");
+  });
+
+  it("generate-workflow-tests.sh script exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/scripts/generate-workflow-tests.sh"))).toBe(true);
+  });
+
+  it("generate-workflow-tests script is a bash script", () => {
+    const content = readText(".github/scripts/generate-workflow-tests.sh");
+    expect(content.startsWith("#!/usr/bin/env bash")).toBe(true);
+  });
+
+  it("generate-workflow-tests script creates test files", () => {
+    const content = readText(".github/scripts/generate-workflow-tests.sh");
+    expect(content).toContain("GENERATED");
+    expect(content).toContain(".test.ts");
+  });
+});

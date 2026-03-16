@@ -90,3 +90,17 @@ Every fix applied by Copilot or Codex automatically generates corresponding test
 - Creates React component tests (TSX) or module tests (TS)
 - Follows the `__tests__/ComponentName.test.tsx` convention
 - Can be run locally: `bash .github/scripts/generate-test-stubs.sh src/components/MyComponent.tsx`
+
+## 6. Workflow Self-Healing
+
+### Auto-Fix (`.github/workflows/workflow-autofix.yml`)
+- Triggers when any monitored workflow fails (`workflow_run` event)
+- Downloads error logs from the failed run
+- Uses Codex CLI to diagnose and fix the issue
+- Commits the fix and pushes automatically
+
+### Auto-Test (`.github/workflows/workflow-test-runner.yml`)
+- Triggers when `.github/workflows/*.yml` files change
+- Runs `generate-workflow-tests.sh` to create test files for new workflows
+- Runs `npm test` to verify all workflow tests pass
+- Commits new test files automatically

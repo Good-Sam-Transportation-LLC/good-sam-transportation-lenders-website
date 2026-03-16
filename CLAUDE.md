@@ -401,3 +401,20 @@ Every fix applied by Copilot, Codex, or any bot automatically triggers test gene
 - TSX files get React component tests with `@testing-library/react`
 - TS files get module export tests
 - All stubs use the `__tests__/` directory convention and `@/` import alias
+
+---
+
+## Workflow Self-Healing
+
+The CI system is self-healing — failed workflows are automatically diagnosed and fixed.
+
+### Auto-Fix Failed Workflows
+- `.github/workflows/workflow-autofix.yml` triggers when any workflow fails
+- Uses Codex CLI to read error logs, diagnose the issue, and apply fixes
+- Commits fixes automatically to the branch
+
+### Auto-Generate Workflow Tests
+- `.github/workflows/workflow-test-runner.yml` triggers when workflow files change
+- Runs `.github/scripts/generate-workflow-tests.sh` to create tests for new workflows
+- Every workflow gets a Vitest test file validating its structure
+- Generated tests check: file existence, triggers, jobs, runner, checkout action
