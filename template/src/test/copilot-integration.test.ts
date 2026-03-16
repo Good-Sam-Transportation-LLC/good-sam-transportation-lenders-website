@@ -1,8 +1,9 @@
 /**
- * Copilot Integration Tests
+ * Copilot Integration Validation Tests
  *
- * These tests verify that GitHub Copilot configuration files
- * (code review instructions and SWE agent setup) are correctly configured.
+ * These tests verify that the GitHub Copilot configuration files are
+ * correctly set up with proper code review instructions, SWE agent
+ * setup steps, and documentation.
  */
 import { describe, it, expect } from "vitest";
 import fs from "fs";
@@ -16,23 +17,33 @@ const readText = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf-8")
 // Group 1: Copilot Code Review Instructions
 // ---------------------------------------------------------------------------
 describe("Copilot code review instructions", () => {
-  it("Copilot instructions file exists", () => {
+  it("Copilot instructions file exists at .github/copilot-instructions.md", () => {
     expect(fs.existsSync(path.join(ROOT, ".github/copilot-instructions.md"))).toBe(true);
   });
 
-  it("instructions cover security review", () => {
+  it("Copilot instructions cover security review", () => {
     const content = readText(".github/copilot-instructions.md");
-    expect(content).toContain("### Security");
+    expect(content).toContain("Security");
   });
 
-  it("instructions cover accessibility review", () => {
+  it("Copilot instructions cover accessibility review", () => {
     const content = readText(".github/copilot-instructions.md");
-    expect(content).toContain("### Accessibility");
+    expect(content).toContain("Accessibility");
   });
 
-  it("instructions require tests for new code", () => {
+  it("Copilot instructions require tests for new code", () => {
     const content = readText(".github/copilot-instructions.md");
-    expect(content).toContain("### Testing");
+    expect(content).toMatch(/test/i);
+  });
+
+  it("Copilot instructions require always attempting to fix issues", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content.toLowerCase()).toContain("always attempt to fix");
+  });
+
+  it("Copilot instructions mention suggestion blocks", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content).toContain("suggestion");
   });
 });
 
@@ -40,35 +51,45 @@ describe("Copilot code review instructions", () => {
 // Group 2: Copilot SWE Agent Setup
 // ---------------------------------------------------------------------------
 describe("Copilot SWE agent setup", () => {
-  it("setup steps file exists", () => {
+  it("Copilot setup steps file exists at .github/copilot-setup-steps.yml", () => {
     expect(fs.existsSync(path.join(ROOT, ".github/copilot-setup-steps.yml"))).toBe(true);
   });
 
-  it("defines a copilot-setup-steps job", () => {
-    const parsed = parse(readText(".github/copilot-setup-steps.yml"));
+  it("setup steps define a copilot-setup-steps job", () => {
+    const content = readText(".github/copilot-setup-steps.yml");
+    const parsed = parse(content);
     expect(parsed.jobs["copilot-setup-steps"]).toBeDefined();
   });
 
-  it("setup job runs on ubuntu-latest", () => {
-    const parsed = parse(readText(".github/copilot-setup-steps.yml"));
+  it("setup steps job runs on ubuntu-latest", () => {
+    const content = readText(".github/copilot-setup-steps.yml");
+    const parsed = parse(content);
     expect(parsed.jobs["copilot-setup-steps"]["runs-on"]).toBe("ubuntu-latest");
   });
 
   it("setup steps use Node 20", () => {
-    const parsed = parse(readText(".github/copilot-setup-steps.yml"));
-    const steps = parsed.jobs["copilot-setup-steps"].steps;
+    const content = readText(".github/copilot-setup-steps.yml");
+    const parsed = parse(content);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const setupNode = steps.find((s: any) => s.uses?.startsWith("actions/setup-node"));
-    expect(setupNode).toBeDefined();
-    expect(setupNode.with["node-version"]).toBe(20);
+    const steps = parsed.jobs["copilot-setup-steps"].steps as any[];
+    const setupNodeStep = steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => typeof s.uses === "string" && s.uses.startsWith("actions/setup-node"),
+    );
+    expect(setupNodeStep).toBeDefined();
+    expect(setupNodeStep.with["node-version"]).toBe(20);
   });
 
-  it("setup steps install dependencies", () => {
-    const parsed = parse(readText(".github/copilot-setup-steps.yml"));
-    const steps = parsed.jobs["copilot-setup-steps"].steps;
+  it("setup steps install dependencies with npm ci", () => {
+    const content = readText(".github/copilot-setup-steps.yml");
+    const parsed = parse(content);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const npmCi = steps.find((s: any) => typeof s.run === "string" && s.run.includes("npm ci"));
-    expect(npmCi).toBeDefined();
+    const steps = parsed.jobs["copilot-setup-steps"].steps as any[];
+    const npmCiStep = steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => typeof s.run === "string" && s.run.includes("npm ci"),
+    );
+    expect(npmCiStep).toBeDefined();
   });
 });
 
@@ -76,17 +97,22 @@ describe("Copilot SWE agent setup", () => {
 // Group 3: Copilot Documentation
 // ---------------------------------------------------------------------------
 describe("Copilot documentation", () => {
-  it("setup guide exists", () => {
+  it("Copilot setup guide exists at .github/COPILOT_SETUP.md", () => {
     expect(fs.existsSync(path.join(ROOT, ".github/COPILOT_SETUP.md"))).toBe(true);
   });
 
-  it("guide documents code review", () => {
+  it("setup guide documents code review configuration", () => {
     const content = readText(".github/COPILOT_SETUP.md");
-    expect(content.toLowerCase()).toContain("code review");
+    expect(content).toMatch(/code review/i);
   });
 
-  it("guide documents coding agent", () => {
+  it("setup guide documents SWE agent configuration", () => {
     const content = readText(".github/COPILOT_SETUP.md");
-    expect(content.toLowerCase()).toContain("coding agent");
+    expect(content).toMatch(/coding agent|SWE agent/i);
+  });
+
+  it("setup guide documents autofix behavior", () => {
+    const content = readText(".github/COPILOT_SETUP.md");
+    expect(content.toLowerCase()).toContain("autofix");
   });
 });

@@ -1,5 +1,13 @@
 # Copilot Code Review Instructions
 
+## Review Behavior
+
+- **Always attempt to fix issues**: For every issue identified during review, provide a concrete code fix using GitHub suggestion blocks.
+- Use triple-backtick `suggestion` blocks to propose inline fixes for every comment.
+- If a fix requires changes across multiple files, describe the complete fix with code snippets in the comment body.
+- Prioritize actionable fixes over advisory comments — every review comment should include a suggested resolution.
+- When identifying missing tests, provide a skeleton test file as a suggestion.
+
 ## Review Focus Areas
 
 When reviewing pull requests, prioritize the following:
@@ -8,16 +16,16 @@ When reviewing pull requests, prioritize the following:
 - Flag potential XSS, SQL injection, command injection vulnerabilities
 - Check for hardcoded secrets, API keys, or credentials
 - Verify proper input validation at system boundaries
-- Flag unsafe use of dangerouslySetInnerHTML
+- Flag unsafe use of `dangerouslySetInnerHTML`
 
 ### React Best Practices
 - Verify proper use of React hooks (dependency arrays, rules of hooks)
-- Check for missing key props in lists
+- Check for missing `key` props in lists
 - Flag direct DOM manipulation instead of React state
 - Verify proper cleanup in useEffect hooks
 
 ### TypeScript
-- Flag use of any type — suggest specific types
+- Flag use of `any` type — suggest specific types
 - Check for missing null/undefined handling
 - Verify proper type narrowing in conditional blocks
 
@@ -29,7 +37,7 @@ When reviewing pull requests, prioritize the following:
 
 ### Testing
 - Every new component, hook, utility, or page MUST have a corresponding test file
-- Test files follow the __tests__/ComponentName.test.tsx convention
+- Test files follow the `__tests__/ComponentName.test.tsx` convention
 - Flag PRs that add source files without corresponding tests
 
 ### Performance

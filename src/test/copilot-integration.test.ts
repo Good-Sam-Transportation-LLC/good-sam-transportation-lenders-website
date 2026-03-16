@@ -35,6 +35,16 @@ describe("Copilot code review instructions", () => {
     const content = readText(".github/copilot-instructions.md");
     expect(content).toMatch(/test/i);
   });
+
+  it("Copilot instructions require always attempting to fix issues", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content.toLowerCase()).toContain("always attempt to fix");
+  });
+
+  it("Copilot instructions mention suggestion blocks", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content).toContain("suggestion");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -99,5 +109,10 @@ describe("Copilot documentation", () => {
   it("setup guide documents SWE agent configuration", () => {
     const content = readText(".github/COPILOT_SETUP.md");
     expect(content).toMatch(/coding agent|SWE agent/i);
+  });
+
+  it("setup guide documents autofix behavior", () => {
+    const content = readText(".github/COPILOT_SETUP.md");
+    expect(content.toLowerCase()).toContain("autofix");
   });
 });

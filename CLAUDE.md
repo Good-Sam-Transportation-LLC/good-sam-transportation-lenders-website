@@ -355,6 +355,7 @@ This repository uses GitHub Copilot for automated code review and issue resoluti
 - Configured via `.github/copilot-instructions.md`
 - Automatically reviews PRs when enabled in repository settings
 - Focuses on: security, React best practices, TypeScript, accessibility, testing, performance
+- **Always provides fixes**: Copilot is configured to use `suggestion` blocks for every issue, not just comments
 
 ### Copilot SWE Agent
 - Configured via `.github/copilot-setup-steps.yml`
@@ -363,3 +364,20 @@ This repository uses GitHub Copilot for automated code review and issue resoluti
 
 ### Setup
 See `.github/COPILOT_SETUP.md` for instructions on enabling these features.
+
+---
+
+## OpenAI Codex CI Integration
+
+The CI pipeline includes a final `codex-review` job that runs OpenAI Codex after all other checks pass.
+
+### How It Works
+- Runs after: lint, typecheck, test, security audit, and build all pass
+- Uses `@openai/codex` CLI in `full-auto` mode to review and fix issues
+- `continue-on-error: true` — won't block CI if API key is missing
+
+### Required Secret
+Add `OPENAI_API_KEY` to your repository secrets:
+1. Go to **Repository Settings** > **Secrets and variables** > **Actions**
+2. Click **New repository secret**
+3. Name: `OPENAI_API_KEY`, Value: your OpenAI API key

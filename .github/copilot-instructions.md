@@ -1,5 +1,13 @@
 # Copilot Code Review Instructions
 
+## Review Behavior
+
+- **Always attempt to fix issues**: For every issue identified during review, provide a concrete code fix using GitHub suggestion blocks.
+- Use triple-backtick `suggestion` blocks to propose inline fixes for every comment.
+- If a fix requires changes across multiple files, describe the complete fix with code snippets in the comment body.
+- Prioritize actionable fixes over advisory comments — every review comment should include a suggested resolution.
+- When identifying missing tests, provide a skeleton test file as a suggestion.
+
 ## Review Focus Areas
 
 When reviewing pull requests, prioritize the following:

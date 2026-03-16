@@ -19,7 +19,7 @@ const ci = parse(ciYaml);
 const pkg = readJson("package.json");
 
 // Jobs that require Node.js setup (setup-node, npm ci, etc.)
-const NODE_JOBS = ["lint-and-typecheck", "test", "security", "build"];
+const NODE_JOBS = ["lint-and-typecheck", "test", "security", "build", "codex-review"];
 
 // ---------------------------------------------------------------------------
 // Group 1: Workflow File Structure
@@ -41,13 +41,13 @@ describe("Workflow file structure", () => {
     expect(ci.on.pull_request.branches).toContain("main");
   });
 
-  it("defines exactly five jobs", () => {
-    expect(Object.keys(ci.jobs).length).toBe(5);
+  it("defines exactly six jobs", () => {
+    expect(Object.keys(ci.jobs).length).toBe(6);
   });
 
   it("defines the expected job IDs: lint-and-typecheck, test, security, test-coverage-check, build", () => {
     const jobIds = new Set(Object.keys(ci.jobs));
-    const expected = new Set(["lint-and-typecheck", "test", "security", "test-coverage-check", "build"]);
+    const expected = new Set(["lint-and-typecheck", "test", "security", "test-coverage-check", "build", "codex-review"]);
     expect(jobIds).toEqual(expected);
   });
 });
@@ -82,6 +82,22 @@ describe("Job dependency graph and execution order", () => {
     expect(needs).toContain("lint-and-typecheck");
     expect(needs).toContain("test");
     expect(needs).toContain("security");
+  });
+
+  it("codex-review job depends on build", () => {
+    const needs = ci.jobs["codex-review"].needs;
+    expect(needs).toContain("build");
+  });
+
+  it("codex-review is the final job (no other job depends on it)", () => {
+    for (const [jobName, job] of Object.entries(ci.jobs)) {
+      if (jobName === "codex-review") continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const needs = (job as any).needs;
+      if (Array.isArray(needs)) {
+        expect(needs, `job "${jobName}" should not depend on codex-review`).not.toContain("codex-review");
+      }
+    }
   });
 
   it("all jobs run on ubuntu-latest", () => {
@@ -294,5 +310,35 @@ describe("Artifact configuration and CI stage coverage", () => {
     expect(coverageJob).toBeDefined();
     expect(coverageJob.if).toBeDefined();
     expect(coverageJob.if).toContain("pull_request");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group 5: Codex Review Configuration
+// ---------------------------------------------------------------------------
+describe("Codex review configuration", () => {
+  it("codex-review job uses OPENAI_API_KEY secret", () => {
+    const codexJob = ci.jobs["codex-review"];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const codexStep = codexJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.env && s.env.OPENAI_API_KEY
+    );
+    expect(codexStep).toBeDefined();
+    expect(codexStep.env.OPENAI_API_KEY).toContain("secrets.OPENAI_API_KEY");
+  });
+
+  it("codex-review job installs @openai/codex", () => {
+    const codexJob = ci.jobs["codex-review"];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const installStep = codexJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => typeof s.run === "string" && s.run.includes("@openai/codex")
+    );
+    expect(installStep).toBeDefined();
+  });
+
+  it("codex-review job has continue-on-error enabled", () => {
+    expect(ci.jobs["codex-review"]["continue-on-error"]).toBe(true);
   });
 });

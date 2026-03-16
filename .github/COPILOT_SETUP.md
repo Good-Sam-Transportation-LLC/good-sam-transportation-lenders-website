@@ -47,6 +47,19 @@ The Copilot coding agent can automatically work on issues assigned to `@copilot`
 | `.github/copilot-setup-steps.yml` | SWE agent environment setup (Node 20, npm ci, lint, test) |
 | `.github/COPILOT_SETUP.md` | This setup guide |
 
+## 3.5 Autofix Behavior
+
+This repository is configured so Copilot code review **always attempts to fix** issues it identifies, not just comment on them.
+
+### How It Works:
+- `.github/copilot-instructions.md` instructs Copilot to use `suggestion` blocks for every review comment
+- Reviewers can accept suggestions with one click via GitHub's "Commit suggestion" button
+- Copilot provides actionable fixes rather than advisory-only comments
+
+### Repository Setting (Optional Enhancement):
+1. Go to **Repository Settings** > **Copilot** > **Code review**
+2. Enable **Copilot autofix** if available
+
 ## 4. How It Works in CI
 
 - **On every PR**: Copilot automatically reviews code (if enabled in settings)
