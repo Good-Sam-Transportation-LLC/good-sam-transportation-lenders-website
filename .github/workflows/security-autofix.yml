@@ -33,21 +33,41 @@ jobs:
 
       - run: npm ci
 
-      - name: Run npm audit fix
+      - name: Iterative npm audit fix
         run: |
-          echo "=== Current vulnerabilities ==="
-          npm audit --audit-level=high 2>&1 || true
+          MAX_ATTEMPTS=3
+          FIXED=false
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo ""
+            echo "========================================="
+            echo "Attempt $i of $MAX_ATTEMPTS"
+            echo "========================================="
+
+            echo ""
+            echo "=== Running npm audit ==="
+            if npm audit --audit-level=high 2>&1; then
+              echo ""
+              echo "Audit passed clean on attempt $i — no high vulnerabilities found."
+              FIXED=true
+              break
+            fi
+
+            echo ""
+            echo "=== Attempting automatic fix ==="
+            npm audit fix 2>&1 || true
+
+            echo ""
+            echo "=== Attempting force fix for breaking changes ==="
+            npm audit fix --force 2>&1 || true
+
+            echo ""
+            echo "=== Rebuilding cleanly with npm ci ==="
+            npm ci 2>&1 || true
+          done
 
           echo ""
-          echo "=== Attempting automatic fix ==="
-          npm audit fix 2>&1 || true
-
-          echo ""
-          echo "=== Attempting force fix for breaking changes ==="
-          npm audit fix --force 2>&1 || true
-
-          echo ""
-          echo "=== Post-fix audit ==="
+          echo "=== Final audit check ==="
           npm audit --audit-level=high 2>&1 || true
 
       - name: Verify fix doesn't break build

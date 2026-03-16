@@ -186,4 +186,10 @@ describe("Security autofix", () => {
       .join("\n");
     expect(allRuns).toContain("git commit");
   });
+
+  it("security-autofix uses iterative npm audit fix loop", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    expect(content).toContain("MAX_ATTEMPTS=3");
+    expect(content).toContain("Iterative npm audit fix");
+  });
 });

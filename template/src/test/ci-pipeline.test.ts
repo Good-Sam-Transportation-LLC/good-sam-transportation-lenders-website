@@ -331,66 +331,37 @@ describe("Security auto-fix configuration", () => {
     expect(checkoutStep.with.token).toContain("secrets.GITHUB_TOKEN");
   });
 
-  it("security audit step uses continue-on-error", () => {
+  it("security job uses iterative audit fix loop", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const auditStep = securityJob.steps.find((s: any) => s.name === "Run security audit");
-    expect(auditStep).toBeDefined();
-    expect(auditStep["continue-on-error"]).toBe(true);
+    const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
+    expect(iterStep).toBeDefined();
+    expect(iterStep.run).toContain("MAX_ATTEMPTS=3");
   });
 
-  it("security audit step sets AUDIT_FAILED env var on failure", () => {
+  it("iterative fix loop runs npm audit --audit-level=high", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const auditStep = securityJob.steps.find((s: any) => s.name === "Run security audit");
-    expect(auditStep.run).toContain("AUDIT_FAILED=true");
-    expect(auditStep.run).toContain("$GITHUB_ENV");
+    const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
+    expect(iterStep.run).toContain("npm audit --audit-level=high");
   });
 
-  it("auto-fix step runs npm audit fix and npm audit fix --force", () => {
+  it("iterative fix loop runs npm audit fix and npm audit fix --force", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fixStep = securityJob.steps.find((s: any) => s.name === "Auto-fix vulnerabilities");
-    expect(fixStep).toBeDefined();
-    expect(fixStep.run).toContain("npm audit fix");
-    expect(fixStep.run).toContain("npm audit fix --force");
+    const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
+    expect(iterStep.run).toContain("npm audit fix");
+    expect(iterStep.run).toContain("npm audit fix --force");
   });
 
-  it("auto-fix step only runs when audit fails", () => {
+  it("iterative fix loop prints attempt number", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fixStep = securityJob.steps.find((s: any) => s.name === "Auto-fix vulnerabilities");
-    expect(fixStep.if).toContain("AUDIT_FAILED");
+    const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
+    expect(iterStep.run).toContain("Attempt $i of $MAX_ATTEMPTS");
   });
 
-  it("verify fix step runs npm test", () => {
+  it("iterative fix loop commits fixes after iterations", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const verifyStep = securityJob.steps.find((s: any) => s.name === "Verify fix");
-    expect(verifyStep).toBeDefined();
-    expect(verifyStep.run).toBe("npm test");
-    expect(verifyStep["continue-on-error"]).toBe(true);
-  });
-
-  it("commit step configures git user as github-actions bot", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const commitStep = securityJob.steps.find((s: any) => s.name === "Commit security fixes");
-    expect(commitStep).toBeDefined();
-    expect(commitStep.run).toContain("github-actions[bot]");
-  });
-
-  it("commit step stages package.json and package-lock.json", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const commitStep = securityJob.steps.find((s: any) => s.name === "Commit security fixes");
-    expect(commitStep.run).toContain("git add package.json package-lock.json");
-  });
-
-  it("commit step skips commit when no changes detected", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const commitStep = securityJob.steps.find((s: any) => s.name === "Commit security fixes");
-    expect(commitStep.run).toContain("git diff --cached --quiet");
-  });
-
-  it("final audit check runs npm audit --audit-level=high", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const finalStep = securityJob.steps.find((s: any) => s.name === "Final audit check");
-    expect(finalStep).toBeDefined();
-    expect(finalStep.run).toBe("npm audit --audit-level=high");
+    const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
+    expect(iterStep.run).toContain("git commit");
+    expect(iterStep.run).toContain("github-actions[bot]");
   });
 });
 
