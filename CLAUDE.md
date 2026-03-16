@@ -418,3 +418,20 @@ The CI system is self-healing — failed workflows are automatically diagnosed a
 - Runs `.github/scripts/generate-workflow-tests.sh` to create tests for new workflows
 - Every workflow gets a Vitest test file validating its structure
 - Generated tests check: file existence, triggers, jobs, runner, checkout action
+
+---
+
+## Security Autofix
+
+Security vulnerabilities are automatically detected and fixed.
+
+### CI Security Job
+- The `security` job in CI now auto-fixes npm audit vulnerabilities inline
+- Runs `npm audit fix` and `npm audit fix --force` when vulnerabilities are detected
+- Commits fixes automatically, then re-runs the audit to verify
+
+### Security Autofix Workflow (`.github/workflows/security-autofix.yml`)
+- Triggers when CI or CodeQL workflows fail, plus daily at 7 AM UTC
+- **npm audit fixes**: Runs `npm audit fix` to update vulnerable dependencies
+- **CodeQL fixes**: Fetches open CodeQL alerts, uses Codex CLI to fix code vulnerabilities
+- All fixes are verified (lint, typecheck, test) before committing

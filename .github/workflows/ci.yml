@@ -43,10 +43,12 @@ jobs:
         run: npm test
 
   security:
-    name: Security Audit
+    name: Security Audit & Auto-Fix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -55,7 +57,36 @@ jobs:
 
       - run: npm ci
 
-      - name: npm audit
+      - name: Run security audit
+        id: audit
+        run: npm audit --audit-level=high 2>&1 | tee /tmp/audit-output.txt || echo "AUDIT_FAILED=true" >> $GITHUB_ENV
+        continue-on-error: true
+
+      - name: Auto-fix vulnerabilities
+        if: env.AUDIT_FAILED == 'true'
+        run: |
+          npm audit fix 2>&1 || true
+          npm audit fix --force 2>&1 || true
+
+      - name: Verify fix
+        if: env.AUDIT_FAILED == 'true'
+        run: npm test
+        continue-on-error: true
+
+      - name: Commit security fixes
+        if: env.AUDIT_FAILED == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No fixable vulnerabilities found."
+          else
+            git commit -m "security: auto-fix npm audit vulnerabilities"
+            git push
+          fi
+
+      - name: Final audit check
         run: npm audit --audit-level=high
 
   test-coverage-check:

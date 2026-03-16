@@ -118,3 +118,72 @@ describe("Security integration in CI", () => {
     expect(needs).toContain("security");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Group 4: Security Autofix
+// ---------------------------------------------------------------------------
+describe("Security autofix", () => {
+  it("security-autofix.yml workflow exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/security-autofix.yml"))).toBe(true);
+  });
+
+  it("security-autofix triggers on CI and CodeQL workflow failures", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    const parsed = parse(content);
+    expect(parsed.on).toHaveProperty("workflow_run");
+    const workflows = parsed.on.workflow_run.workflows;
+    expect(workflows).toContain("CI");
+    expect(workflows).toContain("CodeQL");
+  });
+
+  it("security-autofix runs on a daily schedule", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    const parsed = parse(content);
+    expect(parsed.on).toHaveProperty("schedule");
+  });
+
+  it("security-autofix has npm audit fix job", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    expect(content).toContain("npm audit fix");
+  });
+
+  it("security-autofix has CodeQL findings fix job", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    expect(content).toContain("codeScanning");
+    expect(content).toContain("@openai/codex");
+  });
+
+  it("security-autofix commits fixes automatically", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    expect(content).toContain("git commit");
+    expect(content).toContain("security:");
+  });
+
+  it("security-autofix has write permissions for contents", () => {
+    const content = readText(".github/workflows/security-autofix.yml");
+    const parsed = parse(content);
+    expect(parsed.permissions.contents).toBe("write");
+  });
+
+  it("CI security job attempts auto-fix on failure", () => {
+    const securityJob = ci.jobs.security;
+    const allRuns = securityJob.steps
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((s: any) => s.run)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((s: any) => s.run)
+      .join("\n");
+    expect(allRuns).toContain("npm audit fix");
+  });
+
+  it("CI security job commits fixes automatically", () => {
+    const securityJob = ci.jobs.security;
+    const allRuns = securityJob.steps
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((s: any) => s.run)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((s: any) => s.run)
+      .join("\n");
+    expect(allRuns).toContain("git commit");
+  });
+});
