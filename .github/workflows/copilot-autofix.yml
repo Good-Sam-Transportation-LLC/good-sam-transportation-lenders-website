@@ -1,0 +1,114 @@
+name: Copilot Autofix
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-apply-suggestions:
+    name: Auto-Apply Copilot Suggestions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract suggestion metadata
+        id: extract
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const comment = context.payload.comment;
+            const body = comment.body || '';
+
+            // Extract suggestion blocks from comment
+            const suggestionRegex = /```suggestion\n([\s\S]*?)```/g;
+            const suggestions = [];
+            let match;
+            while ((match = suggestionRegex.exec(body)) !== null) {
+              suggestions.push(match[1]);
+            }
+
+            if (suggestions.length === 0) {
+              console.log('No suggestion blocks found in comment, skipping.');
+              core.setOutput('has_suggestion', 'false');
+              return;
+            }
+
+            // The event payload provides the file path and line numbers directly
+            const filePath = comment.path;
+            const endLine = comment.line;
+            const startLine = comment.start_line || comment.line;
+            const replacementCode = suggestions[0];
+
+            const fs = require('fs');
+            fs.writeFileSync('/tmp/suggestion-meta.json', JSON.stringify({
+              filePath,
+              startLine,
+              endLine,
+              replacementCode,
+            }));
+
+            console.log(`Suggestion targets ${filePath} lines ${startLine}–${endLine}`);
+            core.setOutput('has_suggestion', 'true');
+
+      - name: Apply suggestion to file
+        if: steps.extract.outputs.has_suggestion == 'true'
+        run: |
+          node - << 'NODEEOF'
+          const fs = require('fs');
+          const meta = JSON.parse(fs.readFileSync('/tmp/suggestion-meta.json', 'utf8'));
+          const { filePath, startLine, endLine, replacementCode } = meta;
+
+          const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+
+          // Lines are 1-indexed in the GitHub API
+          const before = lines.slice(0, startLine - 1);
+          const after = lines.slice(endLine);
+          const replacementLines = replacementCode.split('\n');
+
+          // Remove trailing empty string that split produces if replacement ends with \n
+          if (replacementLines[replacementLines.length - 1] === '') {
+            replacementLines.pop();
+          }
+
+          const updated = [...before, ...replacementLines, ...after].join('\n');
+          fs.writeFileSync(filePath, updated);
+          console.log(`Applied suggestion to ${filePath} (lines ${startLine}–${endLine})`);
+          NODEEOF
+
+      - name: Commit and push applied suggestion
+        if: steps.extract.outputs.has_suggestion == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit after applying suggestion."
+          else
+            git commit -m "Apply Copilot suggestion"
+            git push
+          fi
+
+      - name: React to applied comment
+        if: steps.extract.outputs.has_suggestion == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.reactions.createForPullRequestReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: context.payload.comment.id,
+                content: 'rocket'
+              });
+            } catch (e) {
+              console.log('Could not add reaction:', e.message);
+            }

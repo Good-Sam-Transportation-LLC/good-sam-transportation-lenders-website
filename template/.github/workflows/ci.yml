@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+  security:
+    name: Security Audit & Auto-Fix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Iterative security audit and fix
+        run: |
+          MAX_ATTEMPTS=3
+          AUDIT_CLEAN=false
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "========================================="
+            echo "Attempt $i of $MAX_ATTEMPTS"
+            echo "========================================="
+
+            if npm audit --audit-level=high; then
+              echo "Audit passed on attempt $i."
+              AUDIT_CLEAN=true
+              break
+            fi
+
+            echo "Audit failed. Attempting fixes..."
+            npm audit fix 2>&1 || true
+            npm audit fix --force 2>&1 || true
+
+            # Rollback if force fix broke dependency compatibility
+            if ! npm ls --depth=0 2>&1 | grep -q "peer dep"; then
+              echo "Dependencies look compatible after fix."
+            else
+              echo "Force fix broke dependencies — rolling back."
+              git checkout -- package.json package-lock.json
+              npm ci
+            fi
+
+            npm ci
+            npm test || true
+          done
+
+          # Commit any changes made during fix attempts
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No fixable vulnerabilities found."
+          else
+            git commit -m "security: auto-fix npm audit vulnerabilities"
+            git push
+          fi
+
+          # Final audit determines the step's exit code
+          npm audit --audit-level=high
+
+  test-coverage-check:
+    name: PR Test Coverage
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check test coverage for changed files
+        run: bash .github/scripts/check-test-coverage.sh
+
+  build:
+    name: Build & Verify
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test, security]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Build verification tests
+        run: npm run test:build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  codex-review:
+    name: Codex Review & Auto-Fix
+    runs-on: ubuntu-latest
+    needs: [build]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install OpenAI Codex CLI
+        run: npm install -g @openai/codex
+
+      - name: Run Codex review and auto-fix
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+        run: |
+          if [ -z "$CODEX_API_KEY" ]; then
+            echo "::warning::CODEX_API_KEY secret not set — skipping Codex review. Add the secret in repository Settings → Secrets to enable AI-powered code review."
+            exit 0
+          fi
+          codex exec -a never --sandbox workspace-write "Review the codebase for bugs, security issues, and code quality problems. Fix any issues you find."

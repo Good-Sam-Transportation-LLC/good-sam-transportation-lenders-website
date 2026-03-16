@@ -1,0 +1,34 @@
+name: Request Copilot Code Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  request-review:
+    name: Request Copilot as Reviewer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Copilot code review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                reviewers: ['copilot'],
+              });
+              console.log(`Requested Copilot review on PR #${prNumber}`);
+            } catch (error) {
+              // GitHub returns a 422 if the reviewer is already assigned or unavailable.
+              // This is not a fatal error — log it and continue.
+              console.log(`Could not request Copilot review: ${error.message}`);
+            }

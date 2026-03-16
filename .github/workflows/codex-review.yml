@@ -1,0 +1,204 @@
+name: Codex Review
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: write
+
+jobs:
+  codex-review:
+    name: Codex Review & Auto-Fix
+    if: github.event.review.user.type == 'User'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check for unfixed Copilot suggestions
+        id: check-suggestions
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const reviewId = context.payload.review.id;
+            const prNumber = context.payload.pull_request.number;
+
+            // --- Fetch the PR diff ---
+            const diffResponse = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              mediaType: { format: 'diff' },
+            });
+            const prDiff = typeof diffResponse.data === 'string'
+              ? diffResponse.data
+              : JSON.stringify(diffResponse.data);
+
+            // --- Fetch all review comments for this review ---
+            const comments = await github.rest.pulls.listReviewComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            const reviewComments = comments.data.filter(c =>
+              c.pull_request_review_id === reviewId
+            );
+
+            const suggestionComments = reviewComments.filter(c =>
+              c.body.includes('```suggestion')
+            );
+
+            const freeTextComments = reviewComments.filter(c =>
+              !c.body.includes('```suggestion') && c.body.trim().length > 0
+            );
+
+            // Parse each suggestion comment into its exact parts: file, line range, replacement code, explanation
+            const tasks = suggestionComments.map(c => {
+              const codeMatches = [];
+              let m;
+              const codeRegex = /```suggestion\n([\s\S]*?)```/g;
+              while ((m = codeRegex.exec(c.body)) !== null) {
+                codeMatches.push(m[1].trimEnd());
+              }
+              const explanation = c.body.replace(/```suggestion[\s\S]*?```/g, '').trim();
+              return {
+                file: c.path,
+                startLine: c.start_line || c.line,
+                endLine: c.line,
+                replacementCode: codeMatches.join('\n'),
+                explanation,
+              };
+            });
+
+            const fs = require('fs');
+            fs.writeFileSync('/tmp/copilot-suggestions.json', JSON.stringify(tasks, null, 2));
+
+            // --- Section A: PR diff ---
+            const sectionA =
+              '=== SECTION A: PR DIFF ===\n' +
+              'This is the full diff of the pull request. Use it to understand what changed.\n\n' +
+              prDiff;
+
+            // --- Section B: Explicit suggestion blocks ---
+            let sectionB = '=== SECTION B: EXPLICIT SUGGESTION BLOCKS (apply exactly as written) ===\n';
+            if (tasks.length === 0) {
+              sectionB += 'No explicit suggestion blocks in this review.\n';
+            } else {
+              const total = tasks.length;
+              const directives = tasks.map((t, i) => {
+                const range = t.startLine === t.endLine
+                  ? `line ${t.startLine}`
+                  : `lines ${t.startLine}–${t.endLine}`;
+                const expl = t.explanation ? `\nCopilot's explanation: "${t.explanation}"` : '';
+                return `[${i + 1}/${total}] File: ${t.file}, ${range}\nReplace those lines with:\n---\n${t.replacementCode}\n---${expl}`;
+              }).join('\n\n');
+              sectionB += directives;
+            }
+
+            // --- Section C: Free-text review comments ---
+            let sectionC = '=== SECTION C: FREE-TEXT REVIEW COMMENTS (investigate and fix) ===\n';
+            if (freeTextComments.length === 0) {
+              sectionC += 'No free-text review comments in this review.\n';
+            } else {
+              const freeDirectives = freeTextComments.map((c, i) => {
+                const loc = c.path ? `${c.path}:${c.line || 'unknown'}` : 'general';
+                return `[${i + 1}] At ${loc} — The reviewer said: "${c.body.trim()}" — investigate and fix.`;
+              }).join('\n\n');
+              sectionC += freeDirectives;
+            }
+
+            // --- Section D: Independent analysis ---
+            const sectionD =
+              '=== SECTION D: INDEPENDENT ANALYSIS ===\n' +
+              'Based on the PR diff in Section A, independently identify and fix any additional bugs, ' +
+              'style violations, logic errors, or code quality issues not already addressed by Sections B and C. ' +
+              'Do not duplicate fixes already covered above.';
+
+            const prompt =
+              'You are reviewing a pull request. Perform ALL of the following tasks:\n\n' +
+              sectionA + '\n\n' +
+              sectionB + '\n\n' +
+              sectionC + '\n\n' +
+              sectionD + '\n\n' +
+              'After applying all changes, run: npm run lint && npm run typecheck && npm test\n' +
+              'Report any failures.';
+
+            fs.writeFileSync('/tmp/codex-prompt.txt', prompt);
+
+            console.log(`Suggestion blocks: ${suggestionComments.length}, Free-text comments: ${freeTextComments.length}, Diff non-empty: ${prDiff.trim().length > 0}`);
+            console.log('Proceeding with Codex for independent analysis and review application.');
+            core.setOutput('has_suggestions', 'true');
+
+      - name: Install OpenAI Codex CLI
+        if: steps.check-suggestions.outputs.has_suggestions == 'true'
+        run: npm install -g @openai/codex
+
+      - name: Apply unfixed suggestions with Codex
+        if: steps.check-suggestions.outputs.has_suggestions == 'true'
+        env:
+          CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
+        run: |
+          if [ -z "$CODEX_API_KEY" ]; then
+            echo "::error::CODEX_API_KEY secret not set — cannot run Codex review. Add the secret in repository Settings → Secrets."
+            exit 1
+          fi
+          PROMPT=$(cat /tmp/codex-prompt.txt)
+          codex exec --dangerously-bypass-approvals-and-sandbox "$PROMPT"
+
+      - name: Commit and push applied suggestions
+        if: steps.check-suggestions.outputs.has_suggestions == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Apply human review suggestions via Codex"
+            git push
+          fi
+
+      - name: Trigger Copilot SWE Agent to address remaining review threads
+        if: steps.check-suggestions.outputs.has_suggestions == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            // Remove first to force a fresh assignment event
+            try {
+              await github.rest.issues.removeAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                assignees: ['copilot'],
+              });
+            } catch (error) {
+              console.log(`Could not remove Copilot coding agent assignment: ${error.message}`);
+            }
+            // Re-add to trigger the SWE agent to fix remaining unresolved review threads
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                assignees: ['copilot'],
+              });
+              console.log(`Triggered Copilot SWE Agent on PR #${prNumber} to address remaining review threads after Codex`);
+            } catch (error) {
+              console.log(`Could not trigger Copilot SWE Agent: ${error.message}`);
+            }

@@ -1,0 +1,262 @@
+name: Trigger Copilot Coding Agent
+
+on:
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  trigger-copilot-agent:
+    name: Trigger Copilot SWE Agent for Bot Reviews
+    if: |
+      (github.event_name == 'pull_request_review' &&
+        (github.event.review.user.login == 'copilot[bot]' ||
+         github.event.review.user.login == 'chatgpt-codex-connector[bot]')) ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '@copilot') &&
+        github.event.comment.user.login != 'copilot[bot]' &&
+        github.event.comment.user.login != 'github-actions[bot]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect unresolved threads and post task summary
+        id: check-and-collect
+        uses: actions/github-script@v7
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Resolve PR number from whichever event fired
+            const isCommentEvent = context.eventName === 'issue_comment';
+            const prNumber = isCommentEvent
+              ? context.payload.issue.number
+              : context.payload.pull_request.number;
+
+            let reviewLineComments = [];
+            let reviewer = null;
+            let reviewBody = '';
+
+            if (!isCommentEvent) {
+              const reviewId = context.payload.review.id;
+              // Fetch line comments for this specific review
+              const { data } = await github.rest.pulls.listCommentsForReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                review_id: reviewId,
+              });
+              reviewLineComments = data;
+              reviewer = context.payload.review.user.login;
+              reviewBody = context.payload.review.body || '';
+            }
+
+            if (reviewer === 'copilot[bot]') {
+              // Fast path: explicit suggestion blocks found — no LLM needed
+              const hasSuggestionBlock = text => /```suggestion/.test(text);
+              const reviewHasCodeSuggestions =
+                hasSuggestionBlock(reviewBody) ||
+                reviewLineComments.some(c => hasSuggestionBlock(c.body));
+
+              if (!reviewHasCodeSuggestions) {
+                // No explicit suggestion blocks — pass all review text to an LLM to determine
+                // whether free-text comments contain unresolved issues, or whether a summary
+                // comment mentions a count of suggestions still needing fixes.
+                const textsToAnalyze = [
+                  reviewBody,
+                  ...reviewLineComments.map(c => c.body),
+                ].filter(t => t && t.trim().length > 0);
+
+                if (textsToAnalyze.length === 0) {
+                  console.log('Copilot review has no content — skipping SWE agent trigger.');
+                  return;
+                }
+
+                const combinedText = textsToAnalyze.join('\n\n---\n\n');
+                const apiKey = process.env.ANTHROPIC_API_KEY;
+                let isActionable = false;
+
+                if (!apiKey) {
+                  console.log('ANTHROPIC_API_KEY not set — treating review as actionable to avoid missing fixes.');
+                  isActionable = true;
+                } else {
+                  const llmBody = JSON.stringify({
+                    model: 'claude-haiku-4-5-20251001',
+                    max_tokens: 150,
+                    messages: [{
+                      role: 'user',
+                      content: `You are analyzing a Copilot code review. Determine if it is actionable.\n\nReturn ONLY valid JSON (no other text) with:\n- "unresolved": boolean — true if any part describes an issue, bug, or improvement needing a code fix; false if it is only a summary or praise with nothing to act on\n- "suggestion_count": integer — if this is a summary comment mentioning a number of suggestions or unresolved conversations (e.g. "I left 3 suggestions", "2 unresolved comments"), extract that number; otherwise 0\n\nReview text:\n${combinedText}`,
+                    }],
+                  });
+
+                  try {
+                    const llmResponse = await fetch('https://api.anthropic.com/v1/messages', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01',
+                      },
+                      body: llmBody,
+                    });
+
+                    if (!llmResponse.ok) {
+                      console.log(`Anthropic API returned ${llmResponse.status} — treating as actionable to be safe.`);
+                      isActionable = true;
+                    } else {
+                      const llmData = await llmResponse.json();
+                      let parsed;
+                      try {
+                        parsed = JSON.parse(llmData.content[0].text.trim());
+                      } catch (e) {
+                        console.log('Could not parse LLM response — treating as actionable to be safe.');
+                        parsed = { unresolved: true, suggestion_count: 0 };
+                      }
+                      isActionable = parsed.unresolved === true || (parsed.suggestion_count > 0);
+                      console.log(`LLM analysis: unresolved=${parsed.unresolved}, suggestion_count=${parsed.suggestion_count}`);
+                    }
+                  } catch (err) {
+                    console.log(`LLM API call failed: ${err.message} — treating as actionable to be safe.`);
+                    isActionable = true;
+                  }
+                }
+
+                if (!isActionable) {
+                  console.log('LLM determined Copilot review is summary-only (no actionable suggestions) — skipping SWE agent trigger.');
+                  return;
+                }
+              }
+            } else if (!isCommentEvent) {
+              // For other review bots (e.g. chatgpt-codex-connector[bot]): any line comment
+              // is actionable — the bot describes issues in free text, not suggestion blocks
+              if (reviewLineComments.length === 0) {
+                console.log(`${reviewer} review has no line comments — skipping SWE agent trigger.`);
+                return;
+              }
+            }
+            // isCommentEvent: user explicitly mentioned @copilot — always actionable
+
+            // Fetch all unresolved review threads via GraphQL
+            const { repository } = await github.graphql(`
+              query($owner: String!, $repo: String!, $prNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $prNumber) {
+                    reviewThreads(first: 100) {
+                      nodes {
+                        isResolved
+                        comments(first: 20) {
+                          nodes {
+                            body
+                            path
+                            line
+                            author { login }
+                            diffHunk
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              prNumber,
+            });
+
+            const unresolvedThreads = repository.pullRequest.reviewThreads.nodes.filter(
+              t => !t.isResolved
+            );
+
+            // Build the thread summaries. When GraphQL hasn't yet indexed the newly-posted
+            // review threads (race condition), fall back to the REST reviewLineComments already
+            // fetched above so the Codex bot's comments are always included in the task summary.
+            let threadSummaries;
+            let summaryCount;
+
+            if (unresolvedThreads.length > 0) {
+              summaryCount = unresolvedThreads.length;
+              threadSummaries = unresolvedThreads.map((thread, i) => {
+                const firstComment = thread.comments.nodes[0];
+                const loc = firstComment.path
+                  ? `\`${firstComment.path}\` (line ${firstComment.line || 'unknown'})`
+                  : 'general';
+                const diffContext = firstComment.diffHunk
+                  ? `\n**Diff context (the code block being reviewed):**\n\`\`\`diff\n${firstComment.diffHunk}\n\`\`\`\n`
+                  : '';
+                const commentLines = thread.comments.nodes
+                  .map(c => `> **${c.author.login}:** ${c.body}`)
+                  .join('\n');
+                return `### Thread ${i + 1} — ${loc}${diffContext}\n${commentLines}`;
+              }).join('\n\n');
+            } else if (reviewLineComments.length > 0) {
+              // Fallback: GraphQL index lag — use the REST review comments fetched earlier
+              summaryCount = reviewLineComments.length;
+              threadSummaries = reviewLineComments.map((c, i) => {
+                const loc = c.path ? `\`${c.path}\` (line ${c.line || 'unknown'})` : 'general';
+                const diffContext = c.diff_hunk
+                  ? `\n**Diff context (the code block being reviewed):**\n\`\`\`diff\n${c.diff_hunk}\n\`\`\`\n`
+                  : '';
+                const comment = `> **${c.user.login}:** ${c.body}`;
+                return `### Thread ${i + 1} — ${loc}${diffContext}\n${comment}`;
+              }).join('\n\n');
+            } else {
+              console.log('No unresolved review threads found — skipping task summary.');
+              return;
+            }
+
+            const taskComment =
+              `@copilot Please address the following ${summaryCount} unresolved review thread(s) by editing the source files and pushing commits to this branch.\n\n` +
+              `**Instructions:**\n` +
+              `- For each thread with a \`\`\`suggestion\`\`\` block: apply the suggested code replacement at the indicated file and line\n` +
+              `- For each free-text comment: open the file at the indicated path and line, understand the requested change, and implement it\n` +
+              `- Push all changes as commits to this PR branch — do not reply to comments or leave placeholder code\n\n` +
+              `---\n\n` +
+              threadSummaries;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: taskComment,
+            });
+
+            console.log(`Posted task summary with ${summaryCount} unresolved thread(s) for Copilot SWE agent.`);
+            core.setOutput('has_suggestions', 'true');
+
+      - name: Assign PR to Copilot coding agent
+        if: steps.check-and-collect.outputs.has_suggestions == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            // Remove first so a fresh assignment event fires (re-adding an already-assigned
+            // user returns 422 and does NOT re-trigger the SWE agent)
+            try {
+              await github.rest.issues.removeAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                assignees: ['copilot'],
+              });
+            } catch (error) {
+              console.log(`Could not remove Copilot coding agent assignment: ${error.message}`);
+            }
+            // Re-add to fire a fresh assignment event → SWE agent wakes with all unresolved threads
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                assignees: ['copilot'],
+              });
+              console.log(`Re-assigned PR #${prNumber} to @copilot coding agent to resolve review suggestions`);
+            } catch (error) {
+              console.log(`Could not assign Copilot coding agent: ${error.message}`);
+            }

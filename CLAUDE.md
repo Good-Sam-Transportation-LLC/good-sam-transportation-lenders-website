@@ -308,3 +308,130 @@ Existing components include: Button, Card, Dialog, Form, Input, Select, Tabs, Ta
   - `Add fleet section with vehicle table`
 - **Main branch**: `main`
 - **Feature branches**: Descriptive names off `main`
+
+---
+
+## Mandatory Testing & Quality Rules
+
+**CRITICAL: These rules MUST be followed for every change.**
+
+### Always Write Tests
+- Every new component MUST have a corresponding test file in `__tests__/` next to the source
+- Every new hook MUST have tests in `src/hooks/__tests__/`
+- Every new utility function MUST have tests in `src/lib/__tests__/`
+- Every new page MUST have tests in `src/pages/__tests__/`
+- Test files follow the pattern: `ComponentName.test.tsx` or `hook-name.test.ts`
+- Use `renderWithProviders` from `src/test/test-utils.tsx` for components needing providers
+- Mock Framer Motion using the Proxy pattern established in existing tests
+- Mock Recharts components when testing chart sections
+
+### Always Verify Linting
+- Run `npm run lint` after making changes — zero new errors allowed
+- If adding new code patterns, consider whether new ESLint rules should be added to `eslint.config.js`
+- Test any new ESLint rules by adding test cases to `src/test/eslint-rules.test.ts`
+
+### Always Verify Build
+- Run `npm run build` to confirm production build succeeds
+- If changing build configuration, update tests in `src/test/build-config.test.ts`
+- If changing CI workflows, update tests in `src/test/ci-pipeline.test.ts`
+
+### CI Pipeline Tests
+- Any new GitHub Actions workflow MUST have corresponding tests in `src/test/`
+- Any modification to `.github/workflows/ci.yml` MUST be reflected in `src/test/ci-pipeline.test.ts`
+
+### Test Execution Checklist
+Before finishing any task, run:
+1. `npm test` — all unit tests pass
+2. `npm run lint` — no new lint errors
+3. `npm run typecheck` — no type errors
+
+---
+
+## GitHub Copilot Integration
+
+This repository uses GitHub Copilot for automated code review and issue resolution.
+
+### Copilot Code Review (Fully Autonomous)
+- Configured via `.github/copilot-instructions.md`
+- Automatically reviews PRs when enabled in repository settings
+- Focuses on: security, React best practices, TypeScript, accessibility, testing, performance
+- **Fully autonomous**: Copilot posts suggestions, and `.github/workflows/copilot-autofix.yml` auto-applies them — no human in the loop
+- Every review comment must include a `suggestion` block with a fix (no advisory-only comments)
+
+### Copilot SWE Agent
+- Configured via `.github/copilot-setup-steps.yml`
+- Assign issues to `@copilot` to trigger automated fixes
+- Agent runs in a pre-configured environment with Node 20, npm, lint, and tests
+
+### Setup
+See `.github/COPILOT_SETUP.md` for instructions on enabling these features.
+
+---
+
+## OpenAI Codex CI Integration
+
+The CI pipeline includes a final `codex-review` job that runs OpenAI Codex after all other checks pass.
+
+### How It Works
+- Runs after: lint, typecheck, test, security audit, and build all pass
+- Uses `@openai/codex` CLI in `full-auto` mode to review and fix issues
+- `continue-on-error: true` — won't block CI if API key is missing
+
+### Required Secret
+Add `OPENAI_API_KEY` to your repository secrets:
+1. Go to **Repository Settings** > **Secrets and variables** > **Actions**
+2. Click **New repository secret**
+3. Name: `OPENAI_API_KEY`, Value: your OpenAI API key
+
+---
+
+## Automatic Test Generation
+
+Every fix applied by Copilot, Codex, or any bot automatically triggers test generation.
+
+### How It Works
+1. Bot applies a fix (Copilot suggestion, Codex auto-fix, etc.)
+2. `.github/workflows/auto-test-generation.yml` triggers on the bot's commit
+3. Workflow detects which source files were changed but lack test files
+4. Codex generates comprehensive test suites for each file missing tests
+5. Generated tests are committed automatically to the branch
+
+### Test Stub Script
+`.github/scripts/generate-test-stubs.sh` creates basic test scaffolding:
+- TSX files get React component tests with `@testing-library/react`
+- TS files get module export tests
+- All stubs use the `__tests__/` directory convention and `@/` import alias
+
+---
+
+## Workflow Self-Healing
+
+The CI system is self-healing — failed workflows are automatically diagnosed and fixed.
+
+### Auto-Fix Failed Workflows
+- `.github/workflows/workflow-autofix.yml` triggers when any workflow fails
+- Uses Codex CLI to read error logs, diagnose the issue, and apply fixes
+- Commits fixes automatically to the branch
+
+### Auto-Generate Workflow Tests
+- `.github/workflows/workflow-test-runner.yml` triggers when workflow files change
+- Runs `.github/scripts/generate-workflow-tests.sh` to create tests for new workflows
+- Every workflow gets a Vitest test file validating its structure
+- Generated tests check: file existence, triggers, jobs, runner, checkout action
+
+---
+
+## Security Autofix
+
+Security vulnerabilities are automatically detected and fixed.
+
+### CI Security Job
+- The `security` job in CI now auto-fixes npm audit vulnerabilities inline
+- Runs `npm audit fix` and `npm audit fix --force` when vulnerabilities are detected
+- Commits fixes automatically, then re-runs the audit to verify
+
+### Security Autofix Workflow (`.github/workflows/security-autofix.yml`)
+- Triggers when CI or CodeQL workflows fail, plus daily at 7 AM UTC
+- **npm audit fixes**: Runs `npm audit fix` to update vulnerable dependencies
+- **CodeQL fixes**: Fetches open CodeQL alerts, uses Codex CLI to fix code vulnerabilities
+- All fixes are verified (lint, typecheck, test) before committing
