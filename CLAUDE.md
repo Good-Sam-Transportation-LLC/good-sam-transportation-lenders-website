@@ -344,3 +344,22 @@ Before finishing any task, run:
 1. `npm test` — all unit tests pass
 2. `npm run lint` — no new lint errors
 3. `npm run typecheck` — no type errors
+
+---
+
+## GitHub Copilot Integration
+
+This repository uses GitHub Copilot for automated code review and issue resolution.
+
+### Copilot Code Review
+- Configured via `.github/copilot-instructions.md`
+- Automatically reviews PRs when enabled in repository settings
+- Focuses on: security, React best practices, TypeScript, accessibility, testing, performance
+
+### Copilot SWE Agent
+- Configured via `.github/copilot-setup-steps.yml`
+- Assign issues to `@copilot` to trigger automated fixes
+- Agent runs in a pre-configured environment with Node 20, npm, lint, and tests
+
+### Setup
+See `.github/COPILOT_SETUP.md` for instructions on enabling these features.

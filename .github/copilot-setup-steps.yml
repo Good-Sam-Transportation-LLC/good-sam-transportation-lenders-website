@@ -1,0 +1,25 @@
+# Copilot SWE Agent Environment Setup
+# This workflow configures the development environment for GitHub Copilot's
+# coding agent when issues are assigned to @copilot.
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify environment
+        run: |
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          npm run typecheck
+          npm run lint
+          npm test
