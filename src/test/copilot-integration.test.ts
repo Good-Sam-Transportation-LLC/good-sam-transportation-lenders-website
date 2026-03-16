@@ -158,3 +158,70 @@ describe("Copilot autofix workflow", () => {
     expect(content).toContain("applySuggestion");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Group 5: Auto Test Generation
+// ---------------------------------------------------------------------------
+describe("Auto test generation", () => {
+  it("auto-test-generation.yml workflow exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/auto-test-generation.yml"))).toBe(true);
+  });
+
+  it("auto-test-generation workflow triggers on push", () => {
+    const content = readText(".github/workflows/auto-test-generation.yml");
+    const parsed = parse(content);
+    expect(parsed.on).toHaveProperty("push");
+  });
+
+  it("auto-test-generation workflow detects bot commits", () => {
+    const content = readText(".github/workflows/auto-test-generation.yml");
+    expect(content).toContain("copilot");
+    expect(content).toContain("codex");
+  });
+
+  it("auto-test-generation workflow has write permissions", () => {
+    const content = readText(".github/workflows/auto-test-generation.yml");
+    const parsed = parse(content);
+    expect(parsed.permissions.contents).toBe("write");
+  });
+
+  it("auto-test-generation workflow uses Codex for test generation", () => {
+    const content = readText(".github/workflows/auto-test-generation.yml");
+    expect(content).toContain("@openai/codex");
+  });
+
+  it("auto-test-generation workflow commits generated tests", () => {
+    const content = readText(".github/workflows/auto-test-generation.yml");
+    expect(content).toContain("git commit");
+    expect(content).toContain("Auto-generate test suite");
+  });
+
+  it("generate-test-stubs.sh script exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/scripts/generate-test-stubs.sh"))).toBe(true);
+  });
+
+  it("generate-test-stubs script is a bash script", () => {
+    const content = readText(".github/scripts/generate-test-stubs.sh");
+    expect(content.startsWith("#!/usr/bin/env bash")).toBe(true);
+  });
+
+  it("generate-test-stubs script uses __tests__ convention", () => {
+    const content = readText(".github/scripts/generate-test-stubs.sh");
+    expect(content).toContain("__tests__");
+  });
+
+  it("generate-test-stubs script skips shadcn/ui components", () => {
+    const content = readText(".github/scripts/generate-test-stubs.sh");
+    expect(content).toContain("src/components/ui/*");
+  });
+
+  it("generate-test-stubs script generates TSX tests for components", () => {
+    const content = readText(".github/scripts/generate-test-stubs.sh");
+    expect(content).toContain("@testing-library/react");
+  });
+
+  it("generate-test-stubs script uses @/ import alias", () => {
+    const content = readText(".github/scripts/generate-test-stubs.sh");
+    expect(content).toContain('@/');
+  });
+});

@@ -42,6 +42,7 @@ When reviewing pull requests, prioritize the following:
 - Every new component, hook, utility, or page MUST have a corresponding test file
 - Test files follow the `__tests__/ComponentName.test.tsx` convention
 - Flag PRs that add source files without corresponding tests
+- When a fix is applied, the auto-test-generation workflow will create tests automatically — but always include test suggestions in your review comments as well
 
 ### Performance
 - Flag unnecessary re-renders (missing useMemo/useCallback for expensive operations)

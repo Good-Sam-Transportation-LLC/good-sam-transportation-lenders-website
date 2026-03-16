@@ -74,3 +74,19 @@ This repository is configured so Copilot operates **fully autonomously** — no 
 - **On issue assignment**: Copilot SWE agent creates a PR (if enabled)
 - **On every commit**: Existing CI runs lint, typecheck, test, security audit, build
 - **CodeQL**: Scans every commit for security vulnerabilities
+
+## 5. Automatic Test Generation
+
+Every fix applied by Copilot or Codex automatically generates corresponding tests.
+
+### Workflow: `.github/workflows/auto-test-generation.yml`
+- Triggers on push when the commit is from a bot (copilot, codex, github-actions)
+- Finds changed source files missing `__tests__/` test files
+- Uses Codex CLI to generate comprehensive test suites
+- Commits the generated tests to the branch
+
+### Script: `.github/scripts/generate-test-stubs.sh`
+- Generates test stub files for source files missing tests
+- Creates React component tests (TSX) or module tests (TS)
+- Follows the `__tests__/ComponentName.test.tsx` convention
+- Can be run locally: `bash .github/scripts/generate-test-stubs.sh src/components/MyComponent.tsx`

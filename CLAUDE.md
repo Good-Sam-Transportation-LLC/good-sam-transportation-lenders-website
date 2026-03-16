@@ -382,3 +382,22 @@ Add `OPENAI_API_KEY` to your repository secrets:
 1. Go to **Repository Settings** > **Secrets and variables** > **Actions**
 2. Click **New repository secret**
 3. Name: `OPENAI_API_KEY`, Value: your OpenAI API key
+
+---
+
+## Automatic Test Generation
+
+Every fix applied by Copilot, Codex, or any bot automatically triggers test generation.
+
+### How It Works
+1. Bot applies a fix (Copilot suggestion, Codex auto-fix, etc.)
+2. `.github/workflows/auto-test-generation.yml` triggers on the bot's commit
+3. Workflow detects which source files were changed but lack test files
+4. Codex generates comprehensive test suites for each file missing tests
+5. Generated tests are committed automatically to the branch
+
+### Test Stub Script
+`.github/scripts/generate-test-stubs.sh` creates basic test scaffolding:
+- TSX files get React component tests with `@testing-library/react`
+- TS files get module export tests
+- All stubs use the `__tests__/` directory convention and `@/` import alias
