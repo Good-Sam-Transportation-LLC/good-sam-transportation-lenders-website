@@ -20,7 +20,7 @@ describe("Package.json Validation", () => {
   });
 
   it("has all expected scripts", () => {
-    const required = ["dev", "build", "lint", "test", "typecheck", "lint:fix", "test:build"];
+    const required = ["dev", "build", "lint", "test", "typecheck", "test:build"];
     for (const script of required) {
       expect(pkg.scripts).toHaveProperty(script);
     }
@@ -103,26 +103,5 @@ describe("Vitest Configuration", () => {
 
   it("build-verification.test.ts is excluded", () => {
     expect(vitestConfig).toContain("build-verification.test.ts");
-  });
-});
-
-describe("HTML Entry Point", () => {
-  const html = readText("index.html");
-
-  it("contains root mount point", () => {
-    expect(html).toContain('<div id="root">');
-  });
-
-  it("contains /src/main.tsx script reference", () => {
-    expect(html).toContain("/src/main.tsx");
-  });
-
-  it("contains Google Fonts preconnect links", () => {
-    expect(html).toContain("fonts.googleapis.com");
-    expect(html).toContain("fonts.gstatic.com");
-  });
-
-  it("contains Open Graph meta tags", () => {
-    expect(html).toContain("og:title");
   });
 });

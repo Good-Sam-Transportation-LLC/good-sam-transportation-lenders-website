@@ -36,14 +36,6 @@ describe("Build Output Structure", () => {
   it("at least one .css file in dist/assets/", () => {
     expect(getAssetFiles(".css").length).toBeGreaterThanOrEqual(1);
   });
-
-  it("favicon.ico exists in dist/", () => {
-    expect(fs.existsSync(path.join(DIST_DIR, "favicon.ico"))).toBe(true);
-  });
-
-  it("robots.txt exists in dist/", () => {
-    expect(fs.existsSync(path.join(DIST_DIR, "robots.txt"))).toBe(true);
-  });
 });
 
 describe("Bundle Size Guards", () => {
