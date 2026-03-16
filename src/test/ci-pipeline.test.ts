@@ -363,6 +363,14 @@ describe("Security auto-fix configuration", () => {
     expect(iterStep.run).toContain("git commit");
     expect(iterStep.run).toContain("github-actions[bot]");
   });
+
+  it("iterative fix loop validates dependency compatibility after force fix", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
+    expect(iterStep.run).toContain("npm ls");
+    expect(iterStep.run).toContain("rolling back");
+    expect(iterStep.run).toContain("git checkout -- package.json package-lock.json");
+  });
 });
 
 // ---------------------------------------------------------------------------

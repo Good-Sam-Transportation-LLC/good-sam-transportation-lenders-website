@@ -62,6 +62,13 @@ jobs:
             npm audit fix --force 2>&1 || true
 
             echo ""
+            echo "=== Validating dependency compatibility ==="
+            if npm ls --depth=0 2>&1 | grep -q "peer dep"; then
+              echo "Force fix broke dependencies — rolling back."
+              git checkout -- package.json package-lock.json
+            fi
+
+            echo ""
             echo "=== Rebuilding cleanly with npm ci ==="
             npm ci 2>&1 || true
           done

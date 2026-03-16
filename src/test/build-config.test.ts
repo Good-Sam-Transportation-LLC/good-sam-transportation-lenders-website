@@ -33,6 +33,12 @@ describe("Package.json Validation", () => {
   it("type is set to module (ESM)", () => {
     expect(pkg.type).toBe("module");
   });
+
+  it("vite version is pinned without caret", () => {
+    const viteVersion = pkg.devDependencies.vite;
+    expect(viteVersion).toBe("5.4.19");
+    expect(viteVersion).not.toMatch(/^\^/);
+  });
 });
 
 describe("TypeScript Configuration", () => {
