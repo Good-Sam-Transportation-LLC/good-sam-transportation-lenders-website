@@ -58,6 +58,18 @@ jobs:
       - name: npm audit
         run: npm audit --audit-level=high
 
+  test-coverage-check:
+    name: PR Test Coverage
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check test coverage for changed files
+        run: bash .github/scripts/check-test-coverage.sh
+
   build:
     name: Build & Verify
     runs-on: ubuntu-latest

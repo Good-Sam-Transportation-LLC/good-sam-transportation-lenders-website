@@ -18,6 +18,9 @@ const ciYaml = readText(".github/workflows/ci.yml");
 const ci = parse(ciYaml);
 const pkg = readJson("package.json");
 
+// Jobs that require Node.js setup (setup-node, npm ci, etc.)
+const NODE_JOBS = ["lint-and-typecheck", "test", "security", "build"];
+
 // ---------------------------------------------------------------------------
 // Group 1: Workflow File Structure
 // ---------------------------------------------------------------------------
@@ -38,13 +41,13 @@ describe("Workflow file structure", () => {
     expect(ci.on.pull_request.branches).toContain("main");
   });
 
-  it("defines exactly four jobs", () => {
-    expect(Object.keys(ci.jobs).length).toBe(4);
+  it("defines exactly five jobs", () => {
+    expect(Object.keys(ci.jobs).length).toBe(5);
   });
 
-  it("defines the expected job IDs: lint-and-typecheck, test, security, build", () => {
+  it("defines the expected job IDs: lint-and-typecheck, test, security, test-coverage-check, build", () => {
     const jobIds = new Set(Object.keys(ci.jobs));
-    const expected = new Set(["lint-and-typecheck", "test", "security", "build"]);
+    const expected = new Set(["lint-and-typecheck", "test", "security", "test-coverage-check", "build"]);
     expect(jobIds).toEqual(expected);
   });
 });
@@ -65,6 +68,14 @@ describe("Job dependency graph and execution order", () => {
     expect(ci.jobs["security"].needs).toBeUndefined();
   });
 
+  it("test-coverage-check job has no dependencies", () => {
+    expect(ci.jobs["test-coverage-check"].needs).toBeUndefined();
+  });
+
+  it("test-coverage-check only runs on pull_request events", () => {
+    expect(ci.jobs["test-coverage-check"].if).toContain("pull_request");
+  });
+
   it("build job depends on lint-and-typecheck, test, and security", () => {
     const needs = ci.jobs["build"].needs;
     expect(needs).toHaveLength(3);
@@ -80,10 +91,10 @@ describe("Job dependency graph and execution order", () => {
     }
   });
 
-  it("every job runs checkout before setup-node", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const job of Object.values(ci.jobs) as any[]) {
-      const steps = job.steps;
+  it("every Node job runs checkout before setup-node", () => {
+    for (const jobName of NODE_JOBS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const steps = (ci.jobs[jobName] as any).steps;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const checkoutIndex = steps.findIndex((s: any) => s.uses?.startsWith("actions/checkout"));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,10 +105,10 @@ describe("Job dependency graph and execution order", () => {
     }
   });
 
-  it("every job runs npm ci before any npm run command", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const job of Object.values(ci.jobs) as any[]) {
-      const steps = job.steps;
+  it("every Node job runs npm ci before any npm run command", () => {
+    for (const jobName of NODE_JOBS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const steps = (ci.jobs[jobName] as any).steps;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const npmCiIndex = steps.findIndex((s: any) => s.run === "npm ci");
       const npmRunIndices = steps
@@ -151,9 +162,10 @@ describe("Script references and environment consistency", () => {
     expect(hasNpmTest).toBe(true);
   });
 
-  it("all jobs use Node version 20", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const [jobName, job] of Object.entries(ci.jobs) as [string, any][]) {
+  it("all Node jobs use Node version 20", () => {
+    for (const jobName of NODE_JOBS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const job = ci.jobs[jobName] as any;
       const setupNode = job.steps.find(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (step: any) =>
@@ -177,9 +189,10 @@ describe("Script references and environment consistency", () => {
     expect(ciNodeVersion).toBeGreaterThanOrEqual(minVersion);
   });
 
-  it("all jobs enable npm caching", () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const [jobName, job] of Object.entries(ci.jobs) as [string, any][]) {
+  it("all Node jobs enable npm caching", () => {
+    for (const jobName of NODE_JOBS) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const job = ci.jobs[jobName] as any;
       const setupNode = job.steps.find(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (step: any) =>
@@ -274,5 +287,12 @@ describe("Artifact configuration and CI stage coverage", () => {
     }
     const combined = allRuns.join("\n");
     expect(combined).toContain("npm audit");
+  });
+
+  it("CI pipeline includes test coverage check for PRs", () => {
+    const coverageJob = ci.jobs["test-coverage-check"];
+    expect(coverageJob).toBeDefined();
+    expect(coverageJob.if).toBeDefined();
+    expect(coverageJob.if).toContain("pull_request");
   });
 });
