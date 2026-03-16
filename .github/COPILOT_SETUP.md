@@ -47,18 +47,26 @@ The Copilot coding agent can automatically work on issues assigned to `@copilot`
 | `.github/copilot-setup-steps.yml` | SWE agent environment setup (Node 20, npm ci, lint, test) |
 | `.github/COPILOT_SETUP.md` | This setup guide |
 
-## 3.5 Autofix Behavior
+## 3.5 Autonomous Autofix Behavior
 
-This repository is configured so Copilot code review **always attempts to fix** issues it identifies, not just comment on them.
+This repository is configured so Copilot operates **fully autonomously** — no human in the loop.
 
 ### How It Works:
-- `.github/copilot-instructions.md` instructs Copilot to use `suggestion` blocks for every review comment
-- Reviewers can accept suggestions with one click via GitHub's "Commit suggestion" button
-- Copilot provides actionable fixes rather than advisory-only comments
+1. Copilot reviews every PR automatically (via repo settings)
+2. For every issue found, Copilot posts a comment with a `suggestion` block containing the fix
+3. The `copilot-autofix.yml` workflow detects Copilot's suggestion comments
+4. The workflow automatically applies each suggestion and commits it to the PR branch
+5. No human approval is needed — suggestions are applied immediately
 
-### Repository Setting (Optional Enhancement):
-1. Go to **Repository Settings** > **Copilot** > **Code review**
-2. Enable **Copilot autofix** if available
+### Configuration Files:
+- `.github/copilot-instructions.md` — instructs Copilot to always provide fixable suggestions, never advisory-only comments
+- `.github/workflows/copilot-autofix.yml` — auto-applies Copilot suggestions via GitHub API
+- `.github/copilot-setup-steps.yml` — SWE agent environment for issue resolution
+
+### Repository Settings Required:
+1. Go to **Repository Settings** > **Rules** > **Rulesets**
+2. Enable **Automatically request Copilot code review** for the `main` branch
+3. The autofix workflow runs automatically — no additional settings needed
 
 ## 4. How It Works in CI
 

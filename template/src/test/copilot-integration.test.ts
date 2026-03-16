@@ -45,6 +45,16 @@ describe("Copilot code review instructions", () => {
     const content = readText(".github/copilot-instructions.md");
     expect(content).toContain("suggestion");
   });
+
+  it("Copilot instructions enforce autonomous operation", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content.toLowerCase()).toContain("autonomous");
+  });
+
+  it("Copilot instructions prohibit advisory-only comments", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content.toLowerCase()).toContain("no advisory-only comments");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -114,5 +124,37 @@ describe("Copilot documentation", () => {
   it("setup guide documents autofix behavior", () => {
     const content = readText(".github/COPILOT_SETUP.md");
     expect(content.toLowerCase()).toContain("autofix");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group 4: Copilot Autofix Workflow
+// ---------------------------------------------------------------------------
+describe("Copilot autofix workflow", () => {
+  it("copilot-autofix.yml workflow exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/copilot-autofix.yml"))).toBe(true);
+  });
+
+  it("autofix workflow triggers on pull_request_review_comment", () => {
+    const content = readText(".github/workflows/copilot-autofix.yml");
+    const parsed = parse(content);
+    expect(parsed.on).toHaveProperty("pull_request_review_comment");
+  });
+
+  it("autofix workflow only runs for copilot bot comments", () => {
+    const content = readText(".github/workflows/copilot-autofix.yml");
+    expect(content).toContain("copilot[bot]");
+  });
+
+  it("autofix workflow has write permissions for contents and pull-requests", () => {
+    const content = readText(".github/workflows/copilot-autofix.yml");
+    const parsed = parse(content);
+    expect(parsed.permissions.contents).toBe("write");
+    expect(parsed.permissions["pull-requests"]).toBe("write");
+  });
+
+  it("autofix workflow applies suggestions automatically", () => {
+    const content = readText(".github/workflows/copilot-autofix.yml");
+    expect(content).toContain("applySuggestion");
   });
 });

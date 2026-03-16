@@ -2,11 +2,14 @@
 
 ## Review Behavior
 
-- **Always attempt to fix issues**: For every issue identified during review, provide a concrete code fix using GitHub suggestion blocks.
+- **Always attempt to fix issues**: For every issue identified during review, provide a concrete code fix using GitHub suggestion blocks. Never leave a comment without a fix.
+- **Autonomous operation**: All suggestions are automatically applied without human review. Ensure every suggestion is correct, complete, and safe to apply immediately.
+- **No advisory-only comments**: Do not post comments that only describe a problem. Every comment MUST include a `suggestion` block with the corrected code.
 - Use triple-backtick `suggestion` blocks to propose inline fixes for every comment.
-- If a fix requires changes across multiple files, describe the complete fix with code snippets in the comment body.
-- Prioritize actionable fixes over advisory comments — every review comment should include a suggested resolution.
-- When identifying missing tests, provide a skeleton test file as a suggestion.
+- If a fix requires changes across multiple files, create separate suggestion comments for each file.
+- When identifying missing tests, provide a complete test file as a suggestion.
+- Verify that each suggestion maintains backward compatibility and does not introduce regressions.
+- Each suggestion must be independently valid — do not create suggestions that depend on other suggestions being applied first.
 
 ## Review Focus Areas
 

@@ -351,11 +351,12 @@ Before finishing any task, run:
 
 This repository uses GitHub Copilot for automated code review and issue resolution.
 
-### Copilot Code Review
+### Copilot Code Review (Fully Autonomous)
 - Configured via `.github/copilot-instructions.md`
 - Automatically reviews PRs when enabled in repository settings
 - Focuses on: security, React best practices, TypeScript, accessibility, testing, performance
-- **Always provides fixes**: Copilot is configured to use `suggestion` blocks for every issue, not just comments
+- **Fully autonomous**: Copilot posts suggestions, and `.github/workflows/copilot-autofix.yml` auto-applies them — no human in the loop
+- Every review comment must include a `suggestion` block with a fix (no advisory-only comments)
 
 ### Copilot SWE Agent
 - Configured via `.github/copilot-setup-steps.yml`
