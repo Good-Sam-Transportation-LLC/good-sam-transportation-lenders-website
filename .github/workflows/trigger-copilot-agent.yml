@@ -210,23 +210,44 @@ jobs:
               return;
             }
 
-            const taskComment =
-              `@copilot Please address the following ${summaryCount} unresolved review thread(s) by editing the source files and pushing commits to this branch.\n\n` +
-              `**Instructions:**\n` +
-              `- For each thread with a \`\`\`suggestion\`\`\` block: apply the suggested code replacement at the indicated file and line\n` +
-              `- For each free-text comment: open the file at the indicated path and line, understand the requested change, and implement it\n` +
-              `- Push all changes as commits to this PR branch — do not reply to comments or leave placeholder code\n\n` +
-              `---\n\n` +
-              threadSummaries;
+            const taskSection =
+              `<!-- copilot-tasks-start -->\n` +
+              `## Pending Review Tasks\n\n` +
+              `> This section is auto-generated. Assign this PR to \`@copilot\` or mention \`@copilot\` in a comment to apply the fixes below.\n\n` +
+              `There are **${summaryCount}** unresolved review thread(s) to address:\n\n` +
+              `**For each thread with a \`\`\`suggestion\`\`\` block:** apply the suggested code replacement at the exact file and line shown.\n` +
+              `**For each free-text comment:** open the file at the path/line shown, implement the requested change, and push commits to this branch.\n\n` +
+              threadSummaries +
+              `\n<!-- copilot-tasks-end -->`;
 
-            await github.rest.issues.createComment({
+            // Update the PR body — replace existing task section or append a new one
+            const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
-              body: taskComment,
+              pull_number: prNumber,
             });
 
-            console.log(`Posted task summary with ${summaryCount} unresolved thread(s) for Copilot SWE agent.`);
+            const currentBody = pr.body || '';
+            const TASK_START = '<!-- copilot-tasks-start -->';
+            const TASK_END = '<!-- copilot-tasks-end -->';
+
+            let newBody;
+            const startIdx = currentBody.indexOf(TASK_START);
+            const endIdx = currentBody.indexOf(TASK_END);
+            if (startIdx !== -1 && endIdx !== -1) {
+              newBody = currentBody.slice(0, startIdx) + taskSection + currentBody.slice(endIdx + TASK_END.length);
+            } else {
+              newBody = currentBody + (currentBody ? '\n\n' : '') + taskSection;
+            }
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              body: newBody,
+            });
+
+            console.log(`Updated PR body with ${summaryCount} unresolved thread(s) for Copilot SWE agent.`);
             core.setOutput('has_suggestions', 'true');
 
       - name: Assign PR to Copilot coding agent

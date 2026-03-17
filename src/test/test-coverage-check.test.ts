@@ -54,10 +54,10 @@ describe("CI workflow integration", () => {
     expect(ci.jobs["test-coverage-check"]).toBeDefined();
   });
 
-  it("test-coverage-check only runs on PR events", () => {
+  it("test-coverage-check runs on all CI triggers (no if condition)", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const job = ci.jobs["test-coverage-check"] as any;
-    expect(String(job.if)).toContain("pull_request");
+    expect(job.if).toBeUndefined();
   });
 
   it("test-coverage-check job runs the coverage script", () => {

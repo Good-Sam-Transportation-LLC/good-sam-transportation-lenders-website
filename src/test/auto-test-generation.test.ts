@@ -133,7 +133,7 @@ describe("auto-test-generation workflow", () => {
       expect(String(installCodex!.run)).toContain("@openai/codex");
     });
 
-    it("generates tests with Codex using safe sandbox mode", () => {
+    it("generates tests with Codex using dangerously-bypass-approvals-and-sandbox", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["generate-tests"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
@@ -142,7 +142,7 @@ describe("auto-test-generation workflow", () => {
       );
       expect(genTests).toBeDefined();
       const script = String(genTests!.run);
-      expect(script).toContain("codex exec -a never --sandbox workspace-write");
+      expect(script).toContain("codex exec --dangerously-bypass-approvals-and-sandbox");
       expect(script).toContain("Vitest");
       expect(script).toContain("@testing-library/react");
       // Uses CODEX_API_KEY secret

@@ -1,18 +1,29 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { parse } from "yaml";
+import { load } from "js-yaml";
 
-const WORKFLOW_PATH = resolve(import.meta.dirname, "../../.github/workflows/auto-test-generation.yml");
+const WORKFLOW_PATH = resolve(__dirname, "../../.github/workflows/auto-test-generation.yml");
+const TEMPLATE_WORKFLOW_PATH = resolve(
+  __dirname,
+  "../../template/.github/workflows/auto-test-generation.yml"
+);
 
 function loadWorkflow(filePath: string) {
   const content = readFileSync(filePath, "utf-8");
-  return parse(content) as Record<string, unknown>;
+  return load(content) as Record<string, unknown>;
 }
 
 describe("auto-test-generation workflow", () => {
   it("workflow file exists", () => {
     expect(existsSync(WORKFLOW_PATH)).toBe(true);
+  });
+
+  it("template workflow file exists and matches the main workflow", () => {
+    expect(existsSync(TEMPLATE_WORKFLOW_PATH)).toBe(true);
+    const main = readFileSync(WORKFLOW_PATH, "utf-8");
+    const template = readFileSync(TEMPLATE_WORKFLOW_PATH, "utf-8");
+    expect(template).toBe(main);
   });
 
   describe("workflow structure", () => {
@@ -122,7 +133,7 @@ describe("auto-test-generation workflow", () => {
       expect(String(installCodex!.run)).toContain("@openai/codex");
     });
 
-    it("generates tests with Codex using safe sandbox mode", () => {
+    it("generates tests with Codex using full-auto approval mode", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["generate-tests"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;

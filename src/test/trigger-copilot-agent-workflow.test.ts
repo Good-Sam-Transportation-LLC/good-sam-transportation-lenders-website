@@ -212,6 +212,17 @@ describe("trigger-copilot-agent workflow", () => {
       expect(script).toContain("prNumber");
     });
 
+    it("assign step resolves PR number from correct payload field for each event type", () => {
+      const jobs = workflow.jobs as Record<string, unknown>;
+      const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
+      const steps = job.steps as Array<Record<string, unknown>>;
+      const assignStep = steps.find(s => s.name === "Assign PR to Copilot coding agent");
+      const script = String((assignStep!.with as Record<string, unknown>).script);
+      expect(script).toContain("isCommentEvent");
+      expect(script).toContain("context.payload.issue.number");
+      expect(script).toContain("context.payload.pull_request.number");
+    });
+
     it("assign step handles errors gracefully without failing the workflow", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
@@ -251,23 +262,36 @@ describe("trigger-copilot-agent workflow", () => {
       expect(script).toContain("unresolvedThreads");
     });
 
-    it("collect-threads step creates a PR comment with the task summary", () => {
+    it("collect-threads step updates the PR body with the task summary (not a comment)", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
       const collectStep = steps.find(s => s.name === "Collect unresolved threads and post task summary");
       const script = String((collectStep!.with as Record<string, unknown>).script);
-      expect(script).toContain("createComment");
-      expect(script).toContain("@copilot");
+      // Must use pulls.update (not issues.createComment) so the agent reads it from the PR body
+      expect(script).toContain("pulls.update");
+      expect(script).toContain("body: newBody");
     });
 
-    it("collect-threads task comment starts with @copilot mention to trigger agent inline", () => {
+    it("collect-threads step demarcates task section with HTML comment markers for idempotent updates", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
       const collectStep = steps.find(s => s.name === "Collect unresolved threads and post task summary");
       const script = String((collectStep!.with as Record<string, unknown>).script);
-      expect(script).toContain("`@copilot");
+      expect(script).toContain("copilot-tasks-start");
+      expect(script).toContain("copilot-tasks-end");
+    });
+
+    it("collect-threads step replaces existing task section instead of appending duplicate", () => {
+      const jobs = workflow.jobs as Record<string, unknown>;
+      const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
+      const steps = job.steps as Array<Record<string, unknown>>;
+      const collectStep = steps.find(s => s.name === "Collect unresolved threads and post task summary");
+      const script = String((collectStep!.with as Record<string, unknown>).script);
+      expect(script).toContain("TASK_START");
+      expect(script).toContain("TASK_END");
+      expect(script).toContain("startIdx");
     });
 
     it("collect-threads step handles issue_comment event by reading PR number from issue", () => {
@@ -309,14 +333,14 @@ describe("trigger-copilot-agent workflow", () => {
       expect(script).toContain("c.diff_hunk");
     });
 
-    it("collect-threads task comment includes explicit instructions to apply suggestion blocks", () => {
+    it("collect-threads task section includes explicit instructions to apply suggestion blocks", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
       const collectStep = steps.find(s => s.name === "Collect unresolved threads and post task summary");
       const script = String((collectStep!.with as Record<string, unknown>).script);
       expect(script).toContain("apply the suggested code replacement");
-      expect(script).toContain("Push all changes as commits");
+      expect(script).toContain("push commits to this branch");
     });
 
     it("collect-threads step runs before the assign step", () => {
