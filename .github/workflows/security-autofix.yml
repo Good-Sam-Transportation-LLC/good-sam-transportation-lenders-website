@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
@@ -74,7 +74,7 @@ jobs:
 
           echo ""
           echo "=== Final audit check ==="
-          npm audit --audit-level=high 2>&1 || true
+          npm audit --audit-level=high
 
       - name: Verify fix doesn't break build
         run: |
@@ -103,7 +103,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
@@ -161,7 +161,7 @@ jobs:
           fi
           ALERTS=$(cat /tmp/codeql-alerts.txt 2>/dev/null || echo "No alerts file")
 
-          codex exec --dangerously-bypass-approvals-and-sandbox \
+          codex exec -a never --sandbox workspace-write \
             "The following security vulnerabilities were detected by CodeQL static analysis:
 
           ${ALERTS}

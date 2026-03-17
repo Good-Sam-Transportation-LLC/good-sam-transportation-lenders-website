@@ -98,7 +98,11 @@ jobs:
             echo "No fixable vulnerabilities found."
           else
             git commit -m "security: auto-fix npm audit vulnerabilities"
-            git push
+            if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+              git push
+            else
+              echo "Skipping push on PR event to avoid pushing to fork/protected branch."
+            fi
           fi
 
           # Final audit determines the step's exit code
@@ -106,6 +110,7 @@ jobs:
 
   test-coverage-check:
     name: PR Test Coverage
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

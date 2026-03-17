@@ -33,7 +33,7 @@ chmod +x "$TARGET_DIR/.github/scripts/check-test-coverage.sh"
 
 # Update package.json with project name
 if command -v sed &>/dev/null; then
-  sed -i "s/\"name\": \"vite-react-template\"/\"name\": \"$PROJECT_NAME\"/" "$TARGET_DIR/package.json"
+  sed -i "s/\"name\": \"vite_react_shadcn_ts\"/\"name\": \"$PROJECT_NAME\"/" "$TARGET_DIR/package.json"
 fi
 
 # Create minimal source structure

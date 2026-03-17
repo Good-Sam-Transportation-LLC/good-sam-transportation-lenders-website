@@ -40,15 +40,18 @@ while IFS= read -r file; do
   name="${basename%.*}"
   ext="${basename##*.}"
   expected_test="${dir}/__tests__/${name}.test.${ext}"
+  alt_test="${dir}/__tests__/${name}.test.ts"
 
   CHECKED=$((CHECKED + 1))
 
-  if [ ! -f "$expected_test" ]; then
+  if [ -f "$expected_test" ]; then
+    echo "OK: $file"
+  elif [ "$ext" = "tsx" ] && [ -f "$alt_test" ]; then
+    echo "OK (found .test.ts): $file"
+  else
     MISSING+=("$file -> $expected_test")
     echo "MISSING: $file"
     echo "  Expected test at: $expected_test"
-  else
-    echo "OK: $file"
   fi
 done <<< "$CHANGED_FILES"
 

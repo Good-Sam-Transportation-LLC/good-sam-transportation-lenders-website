@@ -17,6 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -47,14 +48,15 @@ jobs:
               ? diffResponse.data
               : JSON.stringify(diffResponse.data);
 
-            // --- Fetch all review comments for this review ---
-            const comments = await github.rest.pulls.listReviewComments({
+            // --- Fetch all review comments for this review (paginated) ---
+            const allComments = await github.paginate(github.rest.pulls.listReviewComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
+              per_page: 100,
             });
 
-            const reviewComments = comments.data.filter(c =>
+            const reviewComments = allComments.filter(c =>
               c.pull_request_review_id === reviewId
             );
 
@@ -109,13 +111,21 @@ jobs:
               sectionB += directives;
             }
 
+            // Include top-level review body as a free-text item if present
+            const reviewBodyText = context.payload.review.body;
+            const allFreeTextItems = [];
+            if (reviewBodyText && reviewBodyText.trim().length > 0 && !reviewBodyText.includes('```suggestion')) {
+              allFreeTextItems.push({ body: reviewBodyText, path: null, line: null, isReviewBody: true });
+            }
+            allFreeTextItems.push(...freeTextComments.map(c => ({ ...c, isReviewBody: false })));
+
             // --- Section C: Free-text review comments ---
             let sectionC = '=== SECTION C: FREE-TEXT REVIEW COMMENTS (investigate and fix) ===\n';
-            if (freeTextComments.length === 0) {
+            if (allFreeTextItems.length === 0) {
               sectionC += 'No free-text review comments in this review.\n';
             } else {
-              const freeDirectives = freeTextComments.map((c, i) => {
-                const loc = c.path ? `${c.path}:${c.line || 'unknown'}` : 'general';
+              const freeDirectives = allFreeTextItems.map((c, i) => {
+                const loc = c.path ? `${c.path}:${c.line || 'unknown'}` : (c.isReviewBody ? 'review summary' : 'general');
                 return `[${i + 1}] At ${loc} — The reviewer said: "${c.body.trim()}" — investigate and fix.`;
               }).join('\n\n');
               sectionC += freeDirectives;
@@ -139,7 +149,7 @@ jobs:
 
             fs.writeFileSync('/tmp/codex-prompt.txt', prompt);
 
-            console.log(`Suggestion blocks: ${suggestionComments.length}, Free-text comments: ${freeTextComments.length}, Diff non-empty: ${prDiff.trim().length > 0}`);
+            console.log(`Suggestion blocks: ${suggestionComments.length}, Free-text comments: ${freeTextComments.length}, Review body included: ${reviewBodyText ? 'yes' : 'no'}, Diff non-empty: ${prDiff.trim().length > 0}`);
             console.log('Proceeding with Codex for independent analysis and review application.');
             core.setOutput('has_suggestions', 'true');
 

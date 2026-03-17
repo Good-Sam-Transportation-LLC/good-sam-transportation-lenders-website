@@ -47,7 +47,7 @@ The Copilot coding agent can automatically work on issues assigned to `@copilot`
 | `.github/copilot-setup-steps.yml` | SWE agent environment setup (Node 20, npm ci, lint, test) |
 | `.github/COPILOT_SETUP.md` | This setup guide |
 
-## 3.5 Autonomous Autofix Behavior
+## 4. Autonomous Autofix Behavior
 
 This repository is configured so Copilot operates **fully autonomously** — no human in the loop.
 
@@ -68,14 +68,14 @@ This repository is configured so Copilot operates **fully autonomously** — no 
 2. Enable **Automatically request Copilot code review** for the `main` branch
 3. The autofix workflow runs automatically — no additional settings needed
 
-## 4. How It Works in CI
+## 5. How It Works in CI
 
 - **On every PR**: Copilot automatically reviews code (if enabled in settings)
 - **On issue assignment**: Copilot SWE agent creates a PR (if enabled)
 - **On every commit**: Existing CI runs lint, typecheck, test, security audit, build
 - **CodeQL**: Scans every commit for security vulnerabilities
 
-## 5. Automatic Test Generation
+## 6. Automatic Test Generation
 
 Every fix applied by Copilot or Codex automatically generates corresponding tests.
 
@@ -91,7 +91,7 @@ Every fix applied by Copilot or Codex automatically generates corresponding test
 - Follows the `__tests__/ComponentName.test.tsx` convention
 - Can be run locally: `bash .github/scripts/generate-test-stubs.sh src/components/MyComponent.tsx`
 
-## 6. Workflow Self-Healing
+## 7. Workflow Self-Healing
 
 ### Auto-Fix (`.github/workflows/workflow-autofix.yml`)
 - Triggers when any monitored workflow fails (`workflow_run` event)
@@ -105,7 +105,7 @@ Every fix applied by Copilot or Codex automatically generates corresponding test
 - Runs `npm test` to verify all workflow tests pass
 - Commits new test files automatically
 
-## 7. Security Autofix
+## 8. Security Autofix
 
 ### Inline CI Fix (`.github/workflows/ci.yml` — security job)
 - Detects npm audit failures and runs `npm audit fix` automatically

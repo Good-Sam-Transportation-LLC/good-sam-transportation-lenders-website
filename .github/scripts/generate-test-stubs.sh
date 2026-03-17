@@ -52,20 +52,23 @@ for file in $FILES; do
 
   # Detect if it's a React component (TSX) or utility (TS)
   if [ "$ext" = "tsx" ]; then
+    # Convert kebab-case name to PascalCase for use as a JS identifier
+    # e.g. "use-mobile" -> "UseMobile", "my-component" -> "MyComponent"
+    component_name=$(echo "$name" | sed 's/-\([a-z]\)/\U\1/g; s/^\([a-z]\)/\U\1/')
     # Generate React component test stub
     cat > "$test_file" << TESTEOF
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import ${name} from "${import_path}";
+import ${component_name} from "${import_path}";
 
-describe("${name}", () => {
+describe("${component_name}", () => {
   it("renders without crashing", () => {
-    render(<${name} />);
+    render(<${component_name} />);
     expect(document.body).toBeTruthy();
   });
 
   it("renders expected content", () => {
-    render(<${name} />);
+    render(<${component_name} />);
     // TODO: Add assertions for expected content
     expect(screen.getByRole("generic")).toBeTruthy();
   });
@@ -73,11 +76,12 @@ describe("${name}", () => {
 TESTEOF
   else
     # Generate utility/hook test stub
+    module_name=$(echo "$name" | sed 's/-\([a-z]\)/\U\1/g; s/^\([a-z]\)/\U\1/')
     cat > "$test_file" << TESTEOF
 import { describe, it, expect } from "vitest";
 import * as module from "${import_path}";
 
-describe("${name}", () => {
+describe("${module_name}", () => {
   it("module exports are defined", () => {
     expect(module).toBeDefined();
   });

@@ -14,10 +14,11 @@ jobs:
     name: Auto-Fix Failed Workflow
     if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.event.workflow_run.head_sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
@@ -70,16 +71,16 @@ jobs:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
         run: |
           if [ -z "$CODEX_API_KEY" ]; then
-            echo "::error::CODEX_API_KEY secret not set — cannot run Codex autofix. Add the secret in repository Settings → Secrets to enable AI-powered workflow repair."
-            exit 1
+            echo "::warning::CODEX_API_KEY secret not set — skipping Codex autofix. Add the secret in repository Settings → Secrets to enable AI-powered workflow repair."
+            exit 0
           fi
           WORKFLOW_NAME="${{ github.event.workflow_run.name }}"
           ERROR_LOGS=$(cat /tmp/error-logs.txt 2>/dev/null || echo "No logs available")
 
-          codex exec -a never --sandbox workspace-write \
-            "The GitHub Actions workflow '${WORKFLOW_NAME}' has failed. Here are the error logs:
+          cat > /tmp/codex-prompt.txt << 'PROMPTEOF'
+          The GitHub Actions workflow 'WORKFLOW_NAME_PLACEHOLDER' has failed. Here are the error logs:
 
-          ${ERROR_LOGS}
+          ERROR_LOGS_PLACEHOLDER
 
           Diagnose the issue and fix it. Common fixes include:
           - Fix syntax errors in source code
@@ -89,7 +90,16 @@ jobs:
           - Fix workflow YAML syntax errors
           - Update dependencies if needed
 
-          After fixing, verify by running: npm run lint && npm run typecheck && npm test"
+          After fixing, verify by running: npm run lint && npm run typecheck && npm test
+          PROMPTEOF
+
+          # Replace placeholders safely (no shell injection)
+          PROMPT_CONTENT=$(cat /tmp/codex-prompt.txt)
+          PROMPT_CONTENT="${PROMPT_CONTENT/WORKFLOW_NAME_PLACEHOLDER/$WORKFLOW_NAME}"
+          PROMPT_CONTENT="${PROMPT_CONTENT/ERROR_LOGS_PLACEHOLDER/$ERROR_LOGS}"
+          echo "$PROMPT_CONTENT" > /tmp/codex-prompt.txt
+
+          codex exec -a never --sandbox workspace-write "$(cat /tmp/codex-prompt.txt)"
 
       - name: Verify fix
         run: |

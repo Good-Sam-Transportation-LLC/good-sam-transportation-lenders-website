@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { load } from "js-yaml";
+import { parse } from "yaml";
 
-const WORKFLOW_PATH = resolve(__dirname, "../../.github/workflows/auto-test-generation.yml");
+const WORKFLOW_PATH = resolve(import.meta.dirname, "../../.github/workflows/auto-test-generation.yml");
 const TEMPLATE_WORKFLOW_PATH = resolve(
-  __dirname,
+  import.meta.dirname,
   "../../template/.github/workflows/auto-test-generation.yml"
 );
 
 function loadWorkflow(filePath: string) {
   const content = readFileSync(filePath, "utf-8");
-  return load(content) as Record<string, unknown>;
+  return parse(content) as Record<string, unknown>;
 }
 
 describe("auto-test-generation workflow", () => {
@@ -133,7 +133,7 @@ describe("auto-test-generation workflow", () => {
       expect(String(installCodex!.run)).toContain("@openai/codex");
     });
 
-    it("generates tests with Codex using dangerously-bypass-approvals-and-sandbox", () => {
+    it("generates tests with Codex using safe sandbox mode", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["generate-tests"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
@@ -142,7 +142,7 @@ describe("auto-test-generation workflow", () => {
       );
       expect(genTests).toBeDefined();
       const script = String(genTests!.run);
-      expect(script).toContain("codex exec --dangerously-bypass-approvals-and-sandbox");
+      expect(script).toContain("codex exec -a never --sandbox workspace-write");
       expect(script).toContain("Vitest");
       expect(script).toContain("@testing-library/react");
       // Uses CODEX_API_KEY secret

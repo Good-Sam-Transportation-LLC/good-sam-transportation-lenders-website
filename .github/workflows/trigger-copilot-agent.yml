@@ -146,7 +146,7 @@ jobs:
               query($owner: String!, $repo: String!, $prNumber: Int!) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $prNumber) {
-                    reviewThreads(first: 100) {
+                    reviewThreads(first: 200) {
                       nodes {
                         isResolved
                         comments(first: 20) {
@@ -235,7 +235,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const prNumber = context.payload.pull_request.number;
+            const isCommentEvent = context.eventName === 'issue_comment';
+            const prNumber = isCommentEvent
+              ? context.payload.issue.number
+              : context.payload.pull_request.number;
             // Remove first so a fresh assignment event fires (re-adding an already-assigned
             // user returns 422 and does NOT re-trigger the SWE agent)
             try {
