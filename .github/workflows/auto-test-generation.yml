@@ -63,9 +63,8 @@ jobs:
             name="${basename_file%.*}"
             ext="${basename_file##*.}"
             expected_test="${dir}/__tests__/${name}.test.${ext}"
-            alt_test="${dir}/__tests__/${name}.test.ts"
 
-            if [ ! -f "$expected_test" ] && { [ "$ext" != "tsx" ] || [ ! -f "$alt_test" ]; }; then
+            if [ ! -f "$expected_test" ]; then
               MISSING="$MISSING $file"
             fi
           done <<< "$CHANGED"
@@ -103,7 +102,7 @@ jobs:
             mkdir -p "$test_dir"
 
             echo "Generating test for: $file -> $test_file"
-            codex exec -a never --sandbox workspace-write \
+            codex exec --dangerously-bypass-approvals-and-sandbox \
               "Read the source file at '$file' and generate a comprehensive test suite for it. Write the test file to '$test_file'. Use Vitest with imports from 'vitest'. Use @testing-library/react for component tests. Use the import alias '@/' for src/ imports. Follow the existing test patterns in this repository. Include tests for all exported functions, components, and hooks. Make sure all tests are meaningful and pass."
           done
 

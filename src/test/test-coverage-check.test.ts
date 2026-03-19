@@ -54,10 +54,11 @@ describe("CI workflow integration", () => {
     expect(ci.jobs["test-coverage-check"]).toBeDefined();
   });
 
-  it("test-coverage-check runs on all CI triggers (no if condition)", () => {
+  it("test-coverage-check runs only on PRs with ready-to-merge label", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const job = ci.jobs["test-coverage-check"] as any;
-    expect(job.if).toBeUndefined();
+    expect(job.if).toContain("pull_request");
+    expect(job.if).toContain("ready-to-merge");
   });
 
   it("test-coverage-check job runs the coverage script", () => {

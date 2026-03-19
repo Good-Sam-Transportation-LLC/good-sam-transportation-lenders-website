@@ -41,13 +41,17 @@ describe("Workflow file structure", () => {
     expect(ci.on.pull_request.branches).toContain("main");
   });
 
-  it("defines exactly five jobs", () => {
-    expect(Object.keys(ci.jobs).length).toBe(5);
+  it("pull_request trigger includes labeled event type", () => {
+    expect(ci.on.pull_request.types).toContain("labeled");
   });
 
-  it("defines the expected job IDs: lint-and-typecheck, test, security, test-coverage-check, build", () => {
+  it("defines exactly six jobs", () => {
+    expect(Object.keys(ci.jobs).length).toBe(6);
+  });
+
+  it("defines the expected job IDs: lint-and-typecheck, test, security, test-coverage-check, build, copilot-deployment", () => {
     const jobIds = new Set(Object.keys(ci.jobs));
-    const expected = new Set(["lint-and-typecheck", "test", "security", "test-coverage-check", "build"]);
+    const expected = new Set(["lint-and-typecheck", "test", "security", "test-coverage-check", "build", "copilot-deployment"]);
     expect(jobIds).toEqual(expected);
   });
 });
@@ -72,8 +76,10 @@ describe("Job dependency graph and execution order", () => {
     expect(ci.jobs["test-coverage-check"].needs).toBeUndefined();
   });
 
-  it("test-coverage-check runs on all CI triggers (no if condition)", () => {
-    expect(ci.jobs["test-coverage-check"].if).toBeUndefined();
+  it("test-coverage-check runs only on PRs with ready-to-merge label", () => {
+    const condition = ci.jobs["test-coverage-check"].if as string;
+    expect(condition).toContain("pull_request");
+    expect(condition).toContain("ready-to-merge");
   });
 
   it("build job depends on lint-and-typecheck, test, and security", () => {
@@ -289,10 +295,12 @@ describe("Artifact configuration and CI stage coverage", () => {
     expect(combined).toContain("npm audit");
   });
 
-  it("CI pipeline includes test coverage check on all triggers", () => {
+  it("CI pipeline runs test coverage check only when ready-to-merge label is present", () => {
     const coverageJob = ci.jobs["test-coverage-check"];
     expect(coverageJob).toBeDefined();
-    expect(coverageJob.if).toBeUndefined();
+    const condition = coverageJob.if as string;
+    expect(condition).toContain("pull_request");
+    expect(condition).toContain("ready-to-merge");
   });
 });
 
@@ -359,3 +367,77 @@ describe("Security auto-fix configuration", () => {
 // Note: codex-review was moved to .github/workflows/codex-review.yml
 // It now triggers only on Copilot pull_request_review events with unfixed suggestions.
 // See src/test/codex-review.test.ts for its tests.
+
+// ---------------------------------------------------------------------------
+// Amplify Build Spec Tests (Groups 6–7)
+// ---------------------------------------------------------------------------
+
+const amplifyConfig = parse(readText("amplify.yml"));
+const preBuildCommands: string[] = amplifyConfig.frontend?.phases?.preBuild?.commands ?? [];
+const buildCommands: string[] = amplifyConfig.frontend?.phases?.build?.commands ?? [];
+
+// ---------------------------------------------------------------------------
+// Group 6: Amplify Build Spec File Structure
+// ---------------------------------------------------------------------------
+describe("amplify.yml build spec", () => {
+  it("amplify.yml file exists at the repository root", () => {
+    expect(fs.existsSync(path.join(ROOT, "amplify.yml"))).toBe(true);
+  });
+
+  it("amplify.yml is valid YAML", () => {
+    expect(() => parse(readText("amplify.yml"))).not.toThrow();
+  });
+
+  it("amplify.yml specifies version 1", () => {
+    expect(amplifyConfig.version).toBe(1);
+  });
+
+  it("amplify.yml build command is npm run build", () => {
+    expect(buildCommands).toContain("npm run build");
+  });
+
+  it("amplify.yml artifact baseDirectory is dist", () => {
+    expect(amplifyConfig.frontend?.artifacts?.baseDirectory).toBe("dist");
+  });
+
+  it("amplify.yml caches node_modules", () => {
+    const cachePaths: string[] = amplifyConfig.frontend?.cache?.paths ?? [];
+    const combined = cachePaths.join("\n");
+    expect(combined).toContain("node_modules");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group 7: Amplify preBuild CI Gate
+// ---------------------------------------------------------------------------
+describe("amplify.yml preBuild CI gate", () => {
+  it("preBuild installs dependencies with npm ci", () => {
+    expect(preBuildCommands).toContain("npm ci");
+  });
+
+  it("preBuild runs lint before build", () => {
+    expect(preBuildCommands).toContain("npm run lint");
+  });
+
+  it("preBuild runs typecheck before build", () => {
+    expect(preBuildCommands).toContain("npm run typecheck");
+  });
+
+  it("preBuild runs tests before build", () => {
+    expect(preBuildCommands).toContain("npm test");
+  });
+
+  it("npm ci runs before any CI checks", () => {
+    const ciIndex = preBuildCommands.indexOf("npm ci");
+    const lintIndex = preBuildCommands.indexOf("npm run lint");
+    const typecheckIndex = preBuildCommands.indexOf("npm run typecheck");
+    const testIndex = preBuildCommands.indexOf("npm test");
+    expect(ciIndex).toBeLessThan(lintIndex);
+    expect(ciIndex).toBeLessThan(typecheckIndex);
+    expect(ciIndex).toBeLessThan(testIndex);
+  });
+
+  it("deploy.yml does not exist (Amplify handles deployment natively)", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/deploy.yml"))).toBe(false);
+  });
+});

@@ -5,6 +5,7 @@ on:
     branches: ["**"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled]
 
 jobs:
   lint-and-typecheck:
@@ -110,7 +111,9 @@ jobs:
 
   test-coverage-check:
     name: PR Test Coverage
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -147,3 +150,31 @@ jobs:
           path: dist/
           retention-days: 7
 
+  copilot-deployment:
+    name: Copilot Deployment
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: >-
+      github.event_name == 'pull_request' &&
+      contains(github.event.pull_request.labels.*.name, 'ready-to-merge')
+    permissions:
+      deployments: write
+    environment:
+      name: copilot
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Verify build artifact
+        run: |
+          echo "Verifying build artifact..."
+          test -f dist/index.html || { echo "ERROR: dist/index.html not found"; exit 1; }
+          ASSET_COUNT=$(find dist -type f | wc -l)
+          echo "Build artifact contains $ASSET_COUNT files"
+          test "$ASSET_COUNT" -gt 0 || { echo "ERROR: dist/ is empty"; exit 1; }
+          echo "Build artifact verified successfully"

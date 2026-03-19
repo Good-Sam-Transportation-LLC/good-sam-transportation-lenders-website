@@ -146,7 +146,7 @@ jobs:
               query($owner: String!, $repo: String!, $prNumber: Int!) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $prNumber) {
-                    reviewThreads(first: 200) {
+                    reviewThreads(first: 100) {
                       nodes {
                         isResolved
                         comments(first: 20) {

@@ -11,10 +11,6 @@ permissions:
 jobs:
   auto-apply-suggestions:
     name: Auto-Apply Copilot Suggestions
-    if: >-
-      github.event.comment.user.login == 'copilot[bot]' ||
-      github.event.comment.user.login == 'github-actions[bot]' ||
-      github.event.comment.user.login == 'chatgpt-codex-connector[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

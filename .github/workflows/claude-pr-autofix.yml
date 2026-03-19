@@ -189,29 +189,31 @@ jobs:
 
               const diffContext = firstComment.diffHunk || '';
 
-              const prompt = `You are a code reviewer's assistant. A reviewer left a comment on a file asking for a change. Apply the change directly to the full file content and return ONLY the complete updated file content — no explanations, no markdown code fences, no diff format.
-
-File: ${filePath}
-
-Reviewer's comment (about lines ${startLine}–${endLine}):
-${body}
-
-Diff context (the exact code block being reviewed):
-\`\`\`diff
-${diffContext}
-\`\`\`
-
-Relevant code snippet (lines ${ctxStart + 1}–${ctxEnd}):
-\`\`\`
-${codeSnippet}
-\`\`\`
-
-Full current file content:
-\`\`\`
-${fileContent}
-\`\`\`
-
-Return ONLY the complete updated file content with the reviewer's requested change applied. Do not include any explanation or markdown fencing.`;
+              const prompt = [
+                'You are a code reviewer\'s assistant. A reviewer left a comment on a file asking for a change. Apply the change directly to the full file content and return ONLY the complete updated file content — no explanations, no markdown code fences, no diff format.',
+                '',
+                `File: ${filePath}`,
+                '',
+                `Reviewer's comment (about lines ${startLine}–${endLine}):`,
+                body,
+                '',
+                'Diff context (the exact code block being reviewed):',
+                '```diff',
+                diffContext,
+                '```',
+                '',
+                `Relevant code snippet (lines ${ctxStart + 1}–${ctxEnd}):`,
+                '```',
+                codeSnippet,
+                '```',
+                '',
+                'Full current file content:',
+                '```',
+                fileContent,
+                '```',
+                '',
+                'Return ONLY the complete updated file content with the reviewer\'s requested change applied. Do not include any explanation or markdown fencing.',
+              ].join('\n');
 
               let updatedContent;
               try {
