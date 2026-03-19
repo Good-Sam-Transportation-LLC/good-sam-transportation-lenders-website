@@ -37,8 +37,8 @@ describe("Workflow file structure", () => {
     expect(ci.on.push.branches).toContain("**");
   });
 
-  it("triggers on pull_request to main branch", () => {
-    expect(ci.on.pull_request.branches).toContain("main");
+  it("triggers on pull_request to all branches", () => {
+    expect(ci.on.pull_request.branches).toContain("**");
   });
 
   it("pull_request trigger includes labeled event type", () => {

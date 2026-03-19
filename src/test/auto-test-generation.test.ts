@@ -173,7 +173,7 @@ describe("auto-test-generation workflow", () => {
       expect(script).toContain("git add");
       expect(script).toContain("git diff --cached --quiet");
       expect(script).toContain("Auto-generate test suite for recent fixes");
-      expect(script).toContain("git push");
+      expect(script).toContain("push-with-scan-wait");
     });
   });
 });

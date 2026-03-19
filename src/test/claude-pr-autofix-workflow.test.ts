@@ -36,12 +36,24 @@ describe("Claude PR Auto-Fix workflow file structure", () => {
     expect(workflow.on.pull_request_review_comment.types).toContain("created");
   });
 
+  it("triggers after Trigger Copilot Coding Agent workflow completes", () => {
+    expect(workflow.on).toHaveProperty("workflow_run");
+    expect(workflow.on.workflow_run.workflows).toContain(
+      "Trigger Copilot Coding Agent"
+    );
+    expect(workflow.on.workflow_run.types).toContain("completed");
+  });
+
   it("has contents:write permission", () => {
     expect(workflow.permissions?.contents).toBe("write");
   });
 
   it("has pull-requests:write permission", () => {
     expect(workflow.permissions?.["pull-requests"]).toBe("write");
+  });
+
+  it("has actions:read permission for workflow_run", () => {
+    expect(workflow.permissions?.actions).toBe("read");
   });
 
   it("defines an auto-fix job", () => {
@@ -52,6 +64,23 @@ describe("Claude PR Auto-Fix workflow file structure", () => {
 describe("Claude PR Auto-Fix job configuration", () => {
   it("runs on ubuntu-latest", () => {
     expect(autoFixJob["runs-on"]).toBe("ubuntu-latest");
+  });
+
+  it("only runs workflow_run when trigger workflow succeeded", () => {
+    const condition = String(autoFixJob.if);
+    expect(condition).toContain("workflow_run");
+    expect(condition).toContain("success");
+  });
+
+  it("has a wait-for-swe step that polls for Copilot SWE commits", () => {
+    const waitStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.id === "wait-for-swe"
+    );
+    expect(waitStep).toBeDefined();
+    expect(waitStep.uses).toContain("actions/github-script");
+    expect(waitStep.with.script).toContain("copilot");
+    expect(waitStep.with.script).toContain("compareCommits");
   });
 
   it("checks for ANTHROPIC_API_KEY before running", () => {
@@ -100,7 +129,7 @@ describe("Claude PR Auto-Fix job configuration", () => {
   it("commits and pushes applied fixes", () => {
     const commitStep = autoFixJob.steps.find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (s: any) => typeof s.run === "string" && s.run.includes("git commit") && s.run.includes("git push")
+      (s: any) => typeof s.run === "string" && s.run.includes("git commit") && s.run.includes("push-with-scan-wait")
     );
     expect(commitStep).toBeDefined();
   });
@@ -108,7 +137,7 @@ describe("Claude PR Auto-Fix job configuration", () => {
   it("commit step only runs when changes were applied", () => {
     const commitStep = autoFixJob.steps.find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (s: any) => typeof s.run === "string" && s.run.includes("git commit") && s.run.includes("git push")
+      (s: any) => typeof s.run === "string" && s.run.includes("git commit") && s.run.includes("push-with-scan-wait")
     );
     expect(String(commitStep?.if)).toContain("apply-fixes.outputs.changed");
   });

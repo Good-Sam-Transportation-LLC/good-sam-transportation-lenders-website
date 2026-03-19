@@ -37,8 +37,8 @@ describe("CodeQL workflow validation", () => {
     expect(codeql.on.push.branches).toContain("**");
   });
 
-  it("CodeQL triggers on pull_request to main", () => {
-    expect(codeql.on.pull_request.branches).toContain("main");
+  it("CodeQL triggers on pull_request to all branches", () => {
+    expect(codeql.on.pull_request.branches).toContain("**");
   });
 
   it("CodeQL has a weekly schedule", () => {

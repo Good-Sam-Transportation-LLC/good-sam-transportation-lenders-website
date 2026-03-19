@@ -28,6 +28,13 @@ describe("trigger-copilot-agent workflow", () => {
       expect(prReview.types).toContain("submitted");
     });
 
+    it("triggers on pull_request_review_comment created event", () => {
+      const on = workflow.on as Record<string, unknown>;
+      const prReviewComment = on["pull_request_review_comment"] as Record<string, unknown>;
+      expect(prReviewComment).toBeDefined();
+      expect(prReviewComment.types).toContain("created");
+    });
+
     it("triggers on issue_comment created event for manual @copilot mentions", () => {
       const on = workflow.on as Record<string, unknown>;
       const issueComment = on["issue_comment"] as Record<string, unknown>;
@@ -35,10 +42,17 @@ describe("trigger-copilot-agent workflow", () => {
       expect(issueComment.types).toContain("created");
     });
 
-    it("does NOT trigger on push or other CI events", () => {
+    it("triggers on CI workflow_run completion", () => {
+      const on = workflow.on as Record<string, unknown>;
+      const workflowRun = on["workflow_run"] as Record<string, unknown>;
+      expect(workflowRun).toBeDefined();
+      expect(workflowRun.workflows).toContain("CI");
+      expect(workflowRun.types).toContain("completed");
+    });
+
+    it("does NOT trigger on push events", () => {
       const on = workflow.on as Record<string, unknown>;
       expect(on["push"]).toBeUndefined();
-      expect(on["workflow_run"]).toBeUndefined();
     });
   });
 
@@ -71,10 +85,10 @@ describe("trigger-copilot-agent workflow", () => {
       expect(jobs["trigger-copilot-agent"]).toBeDefined();
     });
 
-    it("job only runs for copilot[bot] reviews", () => {
+    it("job only runs for copilot reviews", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
-      expect(String(job.if)).toContain("copilot[bot]");
+      expect(String(job.if)).toContain("copilot");
     });
 
     it("job does NOT run for human (User type) reviews", () => {
@@ -84,10 +98,10 @@ describe("trigger-copilot-agent workflow", () => {
       expect(String(job.if)).not.toContain("== 'User'");
     });
 
-    it("job also runs for chatgpt-codex-connector[bot] reviews", () => {
+    it("job also runs for codex-connector reviews", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["trigger-copilot-agent"] as Record<string, unknown>;
-      expect(String(job.if)).toContain("chatgpt-codex-connector[bot]");
+      expect(String(job.if)).toContain("codex-connector");
     });
 
     it("job runs on issue_comment when comment contains @copilot", () => {
@@ -218,7 +232,7 @@ describe("trigger-copilot-agent workflow", () => {
       const steps = job.steps as Array<Record<string, unknown>>;
       const assignStep = steps.find(s => s.name === "Assign PR to Copilot coding agent");
       const script = String((assignStep!.with as Record<string, unknown>).script);
-      expect(script).toContain("isCommentEvent");
+      expect(script).toContain("isIssueComment");
       expect(script).toContain("context.payload.issue.number");
       expect(script).toContain("context.payload.pull_request.number");
     });
@@ -300,7 +314,7 @@ describe("trigger-copilot-agent workflow", () => {
       const steps = job.steps as Array<Record<string, unknown>>;
       const collectStep = steps.find(s => s.name === "Collect unresolved threads and post task summary");
       const script = String((collectStep!.with as Record<string, unknown>).script);
-      expect(script).toContain("isCommentEvent");
+      expect(script).toContain("isIssueComment");
       expect(script).toContain("issue_comment");
       expect(script).toContain("context.payload.issue.number");
     });
@@ -311,7 +325,7 @@ describe("trigger-copilot-agent workflow", () => {
       const steps = job.steps as Array<Record<string, unknown>>;
       const collectStep = steps.find(s => s.name === "Collect unresolved threads and post task summary");
       const script = String((collectStep!.with as Record<string, unknown>).script);
-      expect(script).toContain("!isCommentEvent");
+      expect(script).toContain("!isIssueComment");
     });
 
     it("collect-threads step includes diffHunk in thread summaries for GraphQL path", () => {

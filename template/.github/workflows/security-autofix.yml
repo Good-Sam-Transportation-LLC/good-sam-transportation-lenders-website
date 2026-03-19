@@ -11,6 +11,7 @@ permissions:
   contents: write
   pull-requests: write
   security-events: read
+  checks: read
 
 jobs:
   fix-npm-audit:
@@ -19,11 +20,10 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       (github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name == 'CI')
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
@@ -75,15 +75,17 @@ jobs:
 
           echo ""
           echo "=== Final audit check ==="
-          npm audit --audit-level=high 2>&1 || true
+          npm audit --audit-level=high
 
       - name: Verify fix doesn't break build
         run: |
-          npm run lint || true
-          npm run typecheck || true
-          npm test || true
+          npm run lint
+          npm run typecheck
+          npm test
 
       - name: Commit and push fixes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -92,7 +94,7 @@ jobs:
             echo "No dependency changes to commit."
           else
             git commit -m "security: auto-fix npm audit vulnerabilities"
-            git push
+            bash .github/scripts/push-with-scan-wait.sh
           fi
 
   fix-codeql-findings:
@@ -101,11 +103,10 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       (github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.name == 'CodeQL')
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
@@ -158,8 +159,8 @@ jobs:
           CODEX_API_KEY: ${{ secrets.CODEX_API_KEY }}
         run: |
           if [ -z "$CODEX_API_KEY" ]; then
-            echo "::warning::CODEX_API_KEY secret not set — skipping Codex security fix. Add the secret in repository Settings → Secrets to enable AI-powered vulnerability remediation."
-            exit 0
+            echo "::error::CODEX_API_KEY secret not set — cannot run Codex security fix. Add the secret in repository Settings → Secrets to enable AI-powered vulnerability remediation."
+            exit 1
           fi
           ALERTS=$(cat /tmp/codeql-alerts.txt 2>/dev/null || echo "No alerts file")
 
@@ -180,12 +181,14 @@ jobs:
       - name: Verify fixes
         if: steps.alerts.outputs.result != ''
         run: |
-          npm run lint || true
-          npm run typecheck || true
-          npm test || true
+          npm run lint
+          npm run typecheck
+          npm test
 
       - name: Commit and push fixes
         if: steps.alerts.outputs.result != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -194,5 +197,5 @@ jobs:
             echo "No security fixes to commit."
           else
             git commit -m "security: auto-fix CodeQL vulnerability findings"
-            git push
+            bash .github/scripts/push-with-scan-wait.sh
           fi

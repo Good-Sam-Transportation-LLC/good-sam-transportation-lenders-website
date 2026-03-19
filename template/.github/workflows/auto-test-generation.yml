@@ -7,6 +7,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   generate-tests:
@@ -112,6 +113,8 @@ jobs:
 
       - name: Commit generated tests
         if: steps.find-missing.outputs.missing != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -120,5 +123,5 @@ jobs:
             echo "No new test files to commit."
           else
             git commit -m "Auto-generate test suite for recent fixes"
-            git push
+            bash .github/scripts/push-with-scan-wait.sh
           fi

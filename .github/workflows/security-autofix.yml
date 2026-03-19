@@ -11,6 +11,7 @@ permissions:
   contents: write
   pull-requests: write
   security-events: read
+  checks: read
 
 jobs:
   fix-npm-audit:
@@ -83,6 +84,8 @@ jobs:
           npm test
 
       - name: Commit and push fixes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -91,7 +94,7 @@ jobs:
             echo "No dependency changes to commit."
           else
             git commit -m "security: auto-fix npm audit vulnerabilities"
-            git push
+            bash .github/scripts/push-with-scan-wait.sh
           fi
 
   fix-codeql-findings:
@@ -184,6 +187,8 @@ jobs:
 
       - name: Commit and push fixes
         if: steps.alerts.outputs.result != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -192,5 +197,5 @@ jobs:
             echo "No security fixes to commit."
           else
             git commit -m "security: auto-fix CodeQL vulnerability findings"
-            git push
+            bash .github/scripts/push-with-scan-wait.sh
           fi

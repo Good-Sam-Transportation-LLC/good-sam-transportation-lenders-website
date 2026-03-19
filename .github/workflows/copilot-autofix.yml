@@ -7,6 +7,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   auto-apply-suggestions:
@@ -86,6 +87,8 @@ jobs:
 
       - name: Commit and push applied suggestion
         if: steps.extract.outputs.has_suggestion == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -94,7 +97,7 @@ jobs:
             echo "No changes to commit after applying suggestion."
           else
             git commit -m "Apply Copilot suggestion"
-            git push
+            bash .github/scripts/push-with-scan-wait.sh
           fi
 
       - name: React to applied comment

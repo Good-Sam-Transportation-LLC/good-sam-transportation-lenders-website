@@ -7,19 +7,21 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
   auto-apply-suggestions:
     name: Auto-Apply Copilot Suggestions
-    if: github.event.comment.user.login == 'copilot[bot]' || github.event.comment.user.login == 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Apply suggestion from Copilot comment
+      - name: Extract suggestion metadata
+        id: extract
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -37,42 +39,69 @@ jobs:
 
             if (suggestions.length === 0) {
               console.log('No suggestion blocks found in comment, skipping.');
+              core.setOutput('has_suggestion', 'false');
               return;
             }
 
-            // Use GitHub API to apply the suggestion
-            const prNumber = context.payload.pull_request.number;
-            const commentId = comment.id;
+            // The event payload provides the file path and line numbers directly
+            const filePath = comment.path;
+            const endLine = comment.line;
+            const startLine = comment.start_line || comment.line;
+            const replacementCode = suggestions[0];
 
-            try {
-              // Apply the suggestion via the API
-              await github.rest.pulls.createReview({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-                event: 'COMMENT',
-                body: 'Auto-applying Copilot suggestion.'
-              });
+            const fs = require('fs');
+            fs.writeFileSync('/tmp/suggestion-meta.json', JSON.stringify({
+              filePath,
+              startLine,
+              endLine,
+              replacementCode,
+            }));
 
-              // Commit the suggestion using the suggestions API
-              await github.rest.pulls.applySuggestion({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-                comment_id: commentId,
-                commit_message: 'Apply Copilot suggestion'
-              });
+            console.log(`Suggestion targets ${filePath} lines ${startLine}–${endLine}`);
+            core.setOutput('has_suggestion', 'true');
 
-              console.log(`Applied suggestion from comment ${commentId}`);
-            } catch (error) {
-              console.error(`Failed to apply suggestion: ${error.message}`);
-              // If the API method doesn't exist, try alternative approach
-              // The suggestion may need to be applied manually via file edit
-              console.log('Suggestion application via API failed, this may need manual review.');
-            }
+      - name: Apply suggestion to file
+        if: steps.extract.outputs.has_suggestion == 'true'
+        run: |
+          node - << 'NODEEOF'
+          const fs = require('fs');
+          const meta = JSON.parse(fs.readFileSync('/tmp/suggestion-meta.json', 'utf8'));
+          const { filePath, startLine, endLine, replacementCode } = meta;
+
+          const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+
+          // Lines are 1-indexed in the GitHub API
+          const before = lines.slice(0, startLine - 1);
+          const after = lines.slice(endLine);
+          const replacementLines = replacementCode.split('\n');
+
+          // Remove trailing empty string that split produces if replacement ends with \n
+          if (replacementLines[replacementLines.length - 1] === '') {
+            replacementLines.pop();
+          }
+
+          const updated = [...before, ...replacementLines, ...after].join('\n');
+          fs.writeFileSync(filePath, updated);
+          console.log(`Applied suggestion to ${filePath} (lines ${startLine}–${endLine})`);
+          NODEEOF
+
+      - name: Commit and push applied suggestion
+        if: steps.extract.outputs.has_suggestion == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit after applying suggestion."
+          else
+            git commit -m "Apply Copilot suggestion"
+            bash .github/scripts/push-with-scan-wait.sh
+          fi
 
       - name: React to applied comment
-        if: success()
+        if: steps.extract.outputs.has_suggestion == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

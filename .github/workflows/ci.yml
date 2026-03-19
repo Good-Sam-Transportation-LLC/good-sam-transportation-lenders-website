@@ -4,7 +4,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
-    branches: [main]
+    branches: ["**"]
     types: [opened, synchronize, reopened, labeled]
 
 jobs:
@@ -100,7 +100,7 @@ jobs:
           else
             git commit -m "security: auto-fix npm audit vulnerabilities"
             if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-              git push
+              GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" bash .github/scripts/push-with-scan-wait.sh
             else
               echo "Skipping push on PR event to avoid pushing to fork/protected branch."
             fi
