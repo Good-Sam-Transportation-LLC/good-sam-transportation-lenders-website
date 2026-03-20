@@ -349,19 +349,29 @@ Before finishing any task, run:
 
 ## GitHub Copilot Integration
 
-This repository uses GitHub Copilot for automated code review and issue resolution.
+This repository uses GitHub Copilot for automated code review and issue resolution via an event-driven recursive loop.
 
-### Copilot Code Review (Fully Autonomous)
-- Configured via `.github/copilot-instructions.md`
-- Automatically reviews PRs when enabled in repository settings
-- Focuses on: security, React best practices, TypeScript, accessibility, testing, performance
-- **Fully autonomous**: Copilot posts suggestions, and `.github/workflows/copilot-autofix.yml` auto-applies them — no human in the loop
+### Autonomous Review ➔ Fix Loop (`.github/workflows/copilot-recursive-loop.yml`)
+- **Phase 1 (call-reviewer)**: On PR open or new commit push, requests Copilot as code reviewer
+- **Phase 2 (evaluate-and-fix)**: When Copilot submits a non-approved review, the workflow:
+  1. Checks a **circuit breaker** (MAX_LOOPS=4) to prevent infinite loops
+  2. Analyzes the review for line comments or requested changes
+  3. Posts a `@copilot` mention (using `COPILOT_PAT` secret) to wake the Copilot SWE Agent
+- **Recursion**: The SWE Agent fixes code and pushes a commit → triggers Phase 1 again → loop continues until clean or limit reached
 - Every review comment must include a `suggestion` block with a fix (no advisory-only comments)
+- Configured via `.github/copilot-instructions.md`
+
+### Human Review Auto-Fix
+- `codex-review.yml` — processes human review comments via OpenAI Codex CLI
+- `claude-pr-autofix.yml` — processes free-text review comments via Claude API (runs after the recursive loop completes)
 
 ### Copilot SWE Agent
 - Configured via `.github/copilot-setup-steps.yml`
 - Assign issues to `@copilot` to trigger automated fixes
 - Agent runs in a pre-configured environment with Node 20, npm, lint, and tests
+
+### Required Secrets
+- **`COPILOT_PAT`** — Fine-grained PAT with Read & Write access to Pull Requests, Issues, and Contents (required because `GITHUB_TOKEN` cannot wake native bots)
 
 ### Setup
 See `.github/COPILOT_SETUP.md` for instructions on enabling these features.

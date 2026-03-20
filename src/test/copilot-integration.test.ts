@@ -128,42 +128,51 @@ describe("Copilot documentation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Group 4: Copilot Autofix Workflow
+// Group 4: Copilot Recursive Loop Workflow
 // ---------------------------------------------------------------------------
-describe("Copilot autofix workflow", () => {
-  it("copilot-autofix.yml workflow exists", () => {
-    expect(fs.existsSync(path.join(ROOT, ".github/workflows/copilot-autofix.yml"))).toBe(true);
+describe("Copilot recursive loop workflow", () => {
+  it("copilot-recursive-loop.yml workflow exists", () => {
+    expect(fs.existsSync(path.join(ROOT, ".github/workflows/copilot-recursive-loop.yml"))).toBe(true);
   });
 
-  it("autofix workflow triggers on pull_request_review_comment", () => {
-    const content = readText(".github/workflows/copilot-autofix.yml");
+  it("recursive loop workflow triggers on pull_request and pull_request_review", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
     const parsed = parse(content);
-    expect(parsed.on).toHaveProperty("pull_request_review_comment");
+    expect(parsed.on).toHaveProperty("pull_request");
+    expect(parsed.on).toHaveProperty("pull_request_review");
   });
 
-  it("autofix workflow job is enabled (no if: false gate)", () => {
-    const content = readText(".github/workflows/copilot-autofix.yml");
-    expect(content).not.toContain("if: false");
-  });
-
-  it("autofix workflow has write permissions for contents and pull-requests", () => {
-    const content = readText(".github/workflows/copilot-autofix.yml");
+  it("recursive loop workflow has call-reviewer and evaluate-and-fix jobs", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
     const parsed = parse(content);
-    expect(parsed.permissions.contents).toBe("write");
+    expect(parsed.jobs).toHaveProperty("call-reviewer");
+    expect(parsed.jobs).toHaveProperty("evaluate-and-fix");
+  });
+
+  it("evaluate-and-fix job runs for any Copilot review", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    const parsed = parse(content);
+    const job = parsed.jobs["evaluate-and-fix"];
+    const condition = String(job.if);
+    expect(condition).toContain("copilot");
+    // No longer filters by review state at the job level
+    expect(condition).not.toContain("approved");
+  });
+
+  it("recursive loop workflow has pull-requests write permission", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    const parsed = parse(content);
     expect(parsed.permissions["pull-requests"]).toBe("write");
   });
 
-  it("autofix workflow applies suggestions automatically", () => {
-    const content = readText(".github/workflows/copilot-autofix.yml");
-    expect(content).toContain("Apply suggestion to file");
-    expect(content).toContain("suggestion-meta.json");
+  it("recursive loop workflow uses COPILOT_PAT for SWE agent trigger", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    expect(content).toContain("COPILOT_PAT");
   });
 
-  it("copilot-autofix job has no if gate — runs for every pull_request_review_comment", () => {
-    const workflow = parse(readText(".github/workflows/copilot-autofix.yml"));
-    const jobs = workflow.jobs as Record<string, unknown>;
-    const job = jobs["auto-apply-suggestions"] as Record<string, unknown>;
-    expect(job.if).toBeUndefined();
+  it("recursive loop workflow has circuit breaker with MAX_LOOPS", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    expect(content).toContain("MAX_LOOPS");
   });
 });
 

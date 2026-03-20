@@ -314,12 +314,12 @@ describe("Security auto-fix configuration", () => {
     expect(securityJob.name).toBe("Security Audit & Auto-Fix");
   });
 
-  it("security job checks out with GITHUB_TOKEN for push access", () => {
+  it("security job checks out with COPILOT_PAT for push access", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const checkoutStep = securityJob.steps.find((s: any) =>
       s.uses?.startsWith("actions/checkout@v4")
     );
-    expect(checkoutStep.with.token).toContain("secrets.GITHUB_TOKEN");
+    expect(checkoutStep.with.token).toContain("secrets.COPILOT_PAT");
   });
 
   it("security job uses iterative audit fix loop", () => {
@@ -335,11 +335,11 @@ describe("Security auto-fix configuration", () => {
     expect(iterStep.run).toContain("npm audit --audit-level=high");
   });
 
-  it("iterative fix loop runs npm audit fix and npm audit fix --force", () => {
+  it("iterative fix loop runs npm audit fix without --force", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
     expect(iterStep.run).toContain("npm audit fix");
-    expect(iterStep.run).toContain("npm audit fix --force");
+    expect(iterStep.run).not.toContain("npm audit fix --force");
   });
 
   it("iterative fix loop prints attempt number", () => {
@@ -355,7 +355,7 @@ describe("Security auto-fix configuration", () => {
     expect(iterStep.run).toContain("github-actions[bot]");
   });
 
-  it("iterative fix loop validates dependency compatibility after force fix", () => {
+  it("iterative fix loop validates dependency compatibility and rolls back if broken", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const iterStep = securityJob.steps.find((s: any) => s.name === "Iterative security audit and fix");
     expect(iterStep.run).toContain("npm ls");

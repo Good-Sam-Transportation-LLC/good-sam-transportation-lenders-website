@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COPILOT_PAT || github.token }}
 
       - uses: actions/setup-node@v4
         with:
@@ -74,21 +74,19 @@ jobs:
               break
             fi
 
-            echo "Audit failed. Attempting fixes..."
+            echo "Audit failed. Attempting safe fixes (no --force)..."
             npm audit fix 2>&1 || true
-            npm audit fix --force 2>&1 || true
 
-            # Rollback if force fix broke dependency compatibility
-            if ! npm ls --depth=0 2>&1 | grep -q "peer dep"; then
-              echo "Dependencies look compatible after fix."
-            else
-              echo "Force fix broke dependencies — rolling back."
+            # Verify the fix didn't break peer dependencies
+            if npm ls --depth=0 2>&1 | grep -qiE "ERESOLVE|peer dep|invalid"; then
+              echo "npm audit fix broke dependencies — rolling back."
               git checkout -- package.json package-lock.json
               npm ci
+            else
+              echo "Dependencies still compatible after fix."
+              npm ci
+              npm test || true
             fi
-
-            npm ci
-            npm test || true
           done
 
           # Commit any changes made during fix attempts
@@ -100,7 +98,7 @@ jobs:
           else
             git commit -m "security: auto-fix npm audit vulnerabilities"
             if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-              GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" bash .github/scripts/push-with-scan-wait.sh
+              GITHUB_TOKEN="${{ secrets.COPILOT_PAT }}" bash .github/scripts/push-with-scan-wait.sh
             else
               echo "Skipping push on PR event to avoid pushing to fork/protected branch."
             fi

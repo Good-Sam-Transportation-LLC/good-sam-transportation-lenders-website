@@ -18,13 +18,13 @@ jobs:
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COPILOT_PAT }}
 
       - name: Extract suggestion metadata
         id: extract
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.COPILOT_PAT }}
           script: |
             const comment = context.payload.comment;
             const body = comment.body || '';
@@ -88,7 +88,7 @@ jobs:
       - name: Commit and push applied suggestion
         if: steps.extract.outputs.has_suggestion == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -104,7 +104,7 @@ jobs:
         if: steps.extract.outputs.has_suggestion == 'true'
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.COPILOT_PAT }}
           script: |
             try {
               await github.rest.reactions.createForPullRequestReviewComment({

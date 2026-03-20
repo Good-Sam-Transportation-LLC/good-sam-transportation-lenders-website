@@ -26,20 +26,14 @@ describe("Claude PR Auto-Fix workflow file structure", () => {
     expect(workflow.name).toBe("Claude PR Auto-Fix");
   });
 
-  it("triggers on pull_request_review submissions", () => {
-    expect(workflow.on).toHaveProperty("pull_request_review");
-    expect(workflow.on.pull_request_review.types).toContain("submitted");
+  it("only triggers after Autonomous AI Loop workflow completes (not on pull_request_review)", () => {
+    expect(workflow.on).not.toHaveProperty("pull_request_review");
   });
 
-  it("triggers on pull_request_review_comment creation", () => {
-    expect(workflow.on).toHaveProperty("pull_request_review_comment");
-    expect(workflow.on.pull_request_review_comment.types).toContain("created");
-  });
-
-  it("triggers after Trigger Copilot Coding Agent workflow completes", () => {
+  it("triggers after Autonomous AI Loop workflow completes", () => {
     expect(workflow.on).toHaveProperty("workflow_run");
     expect(workflow.on.workflow_run.workflows).toContain(
-      "Trigger Copilot Coding Agent"
+      "Autonomous AI Loop: Review ➔ Fix"
     );
     expect(workflow.on.workflow_run.types).toContain("completed");
   });
@@ -78,15 +72,48 @@ describe("Claude PR Auto-Fix job configuration", () => {
     expect(condition).toContain("success");
   });
 
-  it("has a wait-for-swe step that polls for Copilot SWE commits", () => {
-    const waitStep = autoFixJob.steps.find(
+  it("has a check-loop-done gate step that detects terminal loop states", () => {
+    const gateStep = autoFixJob.steps.find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (s: any) => s.id === "wait-for-swe"
+      (s: any) => s.id === "check-loop-done"
     );
-    expect(waitStep).toBeDefined();
-    expect(waitStep.uses).toContain("actions/github-script");
-    expect(waitStep.with.script).toContain("copilot");
-    expect(waitStep.with.script).toContain("compareCommits");
+    expect(gateStep).toBeDefined();
+    expect(gateStep.uses).toContain("actions/github-script");
+  });
+
+  it("gate step checks for Copilot approval as terminal state", () => {
+    const gateStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.id === "check-loop-done"
+    );
+    expect(gateStep.with.script).toContain("APPROVED");
+    expect(gateStep.with.script).toContain("listReviews");
+  });
+
+  it("gate step checks for loop-complete and loop-stopped comment markers", () => {
+    const gateStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.id === "check-loop-done"
+    );
+    expect(gateStep.with.script).toContain("Auto-fix loop complete!");
+    expect(gateStep.with.script).toContain("Auto-fix loop stopped");
+  });
+
+  it("gate step compares terminal marker time against SWE invocation time", () => {
+    const gateStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.id === "check-loop-done"
+    );
+    expect(gateStep.with.script).toContain("The Copilot Code Reviewer found issues");
+    expect(gateStep.with.script).toContain("latestTerminalTime > latestSweTime");
+  });
+
+  it("gate step skips when loop is mid-cycle", () => {
+    const gateStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.id === "check-loop-done"
+    );
+    expect(gateStep.with.script).toContain("loop is mid-cycle");
   });
 
   it("wait-for-swe skips polling when triggered by Copilot Recursive Review Loop", () => {
@@ -162,5 +189,21 @@ describe("Claude PR Auto-Fix job configuration", () => {
       (s: any) => typeof s.run === "string" && s.run.includes("git commit") && s.run.includes("push-with-scan-wait")
     );
     expect(String(commitStep?.if)).toContain("apply-fixes.outputs.changed");
+  });
+
+  it("uses COPILOT_PAT for checkout to trigger downstream workflows", () => {
+    const checkoutStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => typeof s.uses === "string" && s.uses.startsWith("actions/checkout@v4")
+    );
+    expect(String(checkoutStep?.with?.token)).toContain("secrets.COPILOT_PAT");
+  });
+
+  it("uses COPILOT_PAT for commit and push step", () => {
+    const commitStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => typeof s.run === "string" && s.run.includes("git commit") && s.run.includes("push-with-scan-wait")
+    );
+    expect(String(commitStep?.env?.GITHUB_TOKEN)).toContain("secrets.COPILOT_PAT");
   });
 });

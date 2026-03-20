@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COPILOT_PAT }}
 
       - uses: actions/setup-node@v4
         with:
@@ -32,7 +32,7 @@ jobs:
         id: logs
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.COPILOT_PAT }}
           script: |
             const runId = context.payload.workflow_run.id;
             const jobs = await github.rest.actions.listJobsForWorkflowRun({
@@ -109,7 +109,7 @@ jobs:
 
       - name: Commit and push fix
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

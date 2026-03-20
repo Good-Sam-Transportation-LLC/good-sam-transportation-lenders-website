@@ -43,30 +43,40 @@ The Copilot coding agent can automatically work on issues assigned to `@copilot`
 
 | File | Purpose |
 |------|---------|
-| `.github/copilot-instructions.md` | Custom review instructions (security, React, a11y, testing) |
-| `.github/copilot-setup-steps.yml` | SWE agent environment setup (Node 20, npm ci, lint, test) |
+| `.github/copilot-instructions.md` | Custom review instructions + SWE agent coding guidelines |
+| `.github/copilot-setup-steps.yml` | SWE agent environment setup (Node 20, npm ci, lint, test, build) |
+| `.github/workflows/copilot-recursive-loop.yml` | Event-driven Review ➔ Fix ➔ Re-Review recursive loop |
+| `.github/workflows/codex-review.yml` | Codex-powered auto-fix for human review comments |
+| `.github/workflows/claude-pr-autofix.yml` | Claude-powered auto-fix for free-text review comments |
 | `.github/COPILOT_SETUP.md` | This setup guide |
 
 ## 4. Autonomous Autofix Behavior
 
 This repository is configured so Copilot operates **fully autonomously** — no human in the loop.
 
-### How It Works:
-1. Copilot reviews every PR automatically (via repo settings)
-2. For every issue found, Copilot posts a comment with a `suggestion` block containing the fix
-3. The `copilot-autofix.yml` workflow detects Copilot's suggestion comments
-4. The workflow automatically applies each suggestion and commits it to the PR branch
-5. No human approval is needed — suggestions are applied immediately
+### How It Works (Event-Driven Recursive Loop):
+1. A PR is opened or a new commit is pushed → `copilot-recursive-loop.yml` requests Copilot as code reviewer
+2. Copilot asynchronously reviews the code and submits a review
+3. If the review contains issues (line comments or requested changes), the workflow posts a `@copilot` mention to wake the Copilot SWE Agent
+4. The SWE Agent fixes the code and pushes a new commit → this triggers `pull_request synchronize`, restarting the loop from step 1
+5. A **circuit breaker** (MAX_LOOPS=4) prevents infinite loops — after 4 iterations, the loop stops and requests human intervention
+6. For **human reviews**, `codex-review.yml` and `claude-pr-autofix.yml` handle fixes separately
 
 ### Configuration Files:
-- `.github/copilot-instructions.md` — instructs Copilot to always provide fixable suggestions, never advisory-only comments
-- `.github/workflows/copilot-autofix.yml` — auto-applies Copilot suggestions via GitHub API
+- `.github/copilot-instructions.md` — instructs Copilot to always provide fixable suggestions; also provides SWE agent coding guidelines
+- `.github/workflows/copilot-recursive-loop.yml` — the recursive Review ➔ Fix ➔ Re-Review loop
+- `.github/workflows/codex-review.yml` — Codex-powered auto-fix for human review comments
+- `.github/workflows/claude-pr-autofix.yml` — Claude-powered auto-fix for free-text review comments
 - `.github/copilot-setup-steps.yml` — SWE agent environment for issue resolution
+
+### Required Secrets:
+- **`COPILOT_PAT`** — A fine-grained Personal Access Token (PAT) with Read & Write access to Pull Requests, Issues, and Contents. Required because `GITHUB_TOKEN` cannot wake native bots like `@copilot`. Create from a user account with write access to the repository.
 
 ### Repository Settings Required:
 1. Go to **Repository Settings** > **Rules** > **Rulesets**
 2. Enable **Automatically request Copilot code review** for the `main` branch
-3. The autofix workflow runs automatically — no additional settings needed
+3. Add `COPILOT_PAT` to repository secrets (Settings > Secrets and variables > Actions)
+4. The recursive loop workflow runs automatically — no additional settings needed
 
 ## 5. How It Works in CI
 

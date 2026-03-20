@@ -193,7 +193,7 @@ describe("Security autofix", () => {
     expect(content).toContain("Iterative npm audit fix");
   });
 
-  it("security-autofix validates dependency compatibility after force fix", () => {
+  it("security-autofix validates dependency compatibility and rolls back if broken", () => {
     const content = readText(".github/workflows/security-autofix.yml");
     expect(content).toContain("npm ls");
     expect(content).toContain("rolling back");

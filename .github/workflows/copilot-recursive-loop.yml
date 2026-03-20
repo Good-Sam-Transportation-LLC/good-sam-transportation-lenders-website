@@ -1,95 +1,191 @@
-name: Copilot Recursive Review Loop
+name: "Autonomous AI Loop: Review ➔ Fix"
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
   pull_request_review:
     types: [submitted]
+  # Allow manual dispatch for pushes that don't trigger pull_request events
+  # (e.g. commits from GITHUB_TOKEN or GitHub App tokens).
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to request Copilot review on"
+        required: true
+        type: string
+  # Bridge trigger: fires after CI completes on any branch, so commits that
+  # don't produce pull_request events still enter the review loop.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
-# Prevent parallel loop iterations on the same PR from stomping each other.
-concurrency:
-  group: copilot-loop-${{ github.event.pull_request.number || github.event.review.pull_request_url }}
-  cancel-in-progress: false
+permissions:
+  pull-requests: write
+  issues: write
 
 jobs:
-  # ── Stage 1 ────────────────────────────────────────────────────────────────
-  # On every push / open / reopen: ask Copilot to review the PR.
+  # ==========================================================
+  # PHASE 1: Call the Copilot Code Reviewer
+  # ==========================================================
   call-reviewer:
     name: Request Copilot Review
-    runs-on: ubuntu-latest
-    # Skip fork PRs: COPILOT_PAT is unavailable for forks, so gh commands would fail.
+    # Run when:
+    #   - pull_request: PR opened or new commits pushed (fires for PAT-based pushes)
+    #   - workflow_dispatch: manually triggered with a PR number
+    #   - workflow_run: CI completed on a branch that has an open PR
+    # Skip fork PRs on pull_request events (secrets unavailable on forks).
     if: >
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      pull-requests: write
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
     steps:
-      - name: Request Copilot as reviewer
+      - name: Resolve PR number
+        id: resolve-pr
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_REPO: ${{ github.repository }}
+          REPO: ${{ github.repository }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          # Check if Copilot is already a requested reviewer to avoid a redundant API call.
-          EXISTING=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json reviewRequests \
-            --jq '[.reviewRequests[].login] | any(. == "copilot")' 2>/dev/null || echo "false")
-          if [ "$EXISTING" = "true" ]; then
-            echo "Copilot is already a requested reviewer on PR #$PR_NUMBER — skipping."
-          else
-            gh pr edit "$PR_NUMBER" --add-reviewer copilot --repo "$GH_REPO" || \
-              echo "Could not add Copilot as reviewer (Copilot coding agent may not be enabled for this repository)"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # Find open PR for the branch that CI just ran on
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            echo "Looking up open PR for branch: $BRANCH"
+            PR=$(gh pr list -R "$REPO" --head "$BRANCH" --state open --json number -q '.[0].number')
+            if [ -z "$PR" ]; then
+              echo "No open PR for branch $BRANCH — skipping."
+              echo "pr_number=" >> $GITHUB_OUTPUT
+            else
+              echo "Found PR #$PR for branch $BRANCH"
+              echo "pr_number=$PR" >> $GITHUB_OUTPUT
+            fi
           fi
 
-  # ── Stage 2 ────────────────────────────────────────────────────────────────
-  # When Copilot submits a review: check the circuit breaker, then ask the
-  # Copilot SWE agent to fix any remaining issues.
+      - name: Request Copilot Code Review
+        if: steps.resolve-pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Requesting code review from Copilot on PR #$PR_NUMBER..."
+          # Use the review-request API endpoint directly.
+          # gh pr edit --add-reviewer is a no-op if Copilot already submitted a review,
+          # but the API endpoint re-requests review even after a prior submission.
+          gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            --method POST \
+            --field "reviewers[]=copilot" \
+            || echo "Could not request review — Copilot may already be assigned."
+
+  # ==========================================================
+  # PHASE 2: Evaluate Review & Trigger SWE Agent
+  # ==========================================================
   evaluate-and-fix:
-    name: Evaluate Review and Trigger SWE Fix
-    runs-on: ubuntu-latest
-    # Only run when Copilot submits a review, and only for PRs from this repo.
-    # Skip fork PRs: secrets are unavailable on forks, so gh commands would fail.
+    name: Evaluate Review & Trigger SWE Agent
+    # Run when Copilot submits any review (the analyze step determines
+    # whether there are actionable issues worth fixing)
     if: >
       github.event_name == 'pull_request_review' &&
-      contains(github.event.review.user.login, 'copilot') &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    permissions:
-      pull-requests: write
-      issues: write
+      contains(github.event.review.user.login, 'copilot')
+    runs-on: ubuntu-latest
     steps:
-      - name: Check circuit breaker
-        id: circuit-breaker
+      - name: Log review event details
+        run: |
+          echo "Reviewer: ${{ github.event.review.user.login }}"
+          echo "Review state: ${{ github.event.review.state }}"
+          echo "Review ID: ${{ github.event.review.id }}"
+          echo "PR number: ${{ github.event.pull_request.number }}"
+
+      - name: Check Recursive Loop Limit (Circuit Breaker)
+        id: loop-limit
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          MAX_LOOPS: 4
         run: |
-          REPO="${{ github.repository }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          MAGIC_PHRASE="<!-- copilot-swe-invocation -->"
-          MAX_LOOPS=5
+          # Count how many times the orchestrator has asked the SWE agent to fix issues.
+          # This is a crucial failsafe to prevent infinite billing/compute loops.
+          MAGIC_PHRASE="The Copilot Code Reviewer found issues"
+          INVOCATIONS=$(gh api --paginate repos/$REPO/issues/$PR_NUMBER/comments --jq "[.[] | select(.body | contains(\"$MAGIC_PHRASE\"))] | length")
 
-          # Paginate through ALL issue comments so the count is accurate even
-          # when a PR has more than 30 comments (the default GitHub page size).
-          INVOCATIONS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq "[.[] | select(.body | contains(\"$MAGIC_PHRASE\"))] | length")
-
-          echo "invocations=$INVOCATIONS" >> "$GITHUB_OUTPUT"
+          echo "Current AI loop iterations: $INVOCATIONS / $MAX_LOOPS"
 
           if [ "$INVOCATIONS" -ge "$MAX_LOOPS" ]; then
-            echo "Circuit breaker tripped: $INVOCATIONS/$MAX_LOOPS loop iterations reached. Stopping to prevent infinite loop."
-            echo "should_trigger=false" >> "$GITHUB_OUTPUT"
+            echo "Maximum AI iteration limit reached ($MAX_LOOPS)."
+            gh pr comment "$PR_NUMBER" -R "$REPO" --body "⚠️ **Auto-fix loop stopped**: Reached the maximum limit of $MAX_LOOPS automated recursive fixes. Human intervention is now required."
+            echo "stop=true" >> $GITHUB_OUTPUT
           else
-            echo "Loop iteration $((INVOCATIONS + 1))/$MAX_LOOPS — proceeding to trigger SWE agent."
-            echo "should_trigger=true" >> "$GITHUB_OUTPUT"
+            echo "stop=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Trigger Copilot SWE Agent
-        if: steps.circuit-breaker.outputs.should_trigger == 'true'
+      - name: Analyze Review Comments
+        id: analyze
+        if: steps.loop-limit.outputs.stop == 'false'
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_ID: ${{ github.event.review.id }}
+          REPO: ${{ github.repository }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          MAGIC_PHRASE="<!-- copilot-swe-invocation -->"
-          gh pr comment "$PR_NUMBER" \
-            --body "@copilot Please address the review feedback on this PR. $MAGIC_PHRASE" \
-            --repo "$GH_REPO"
+          # Fetch the number of line-specific comments attached to this review
+          COMMENT_COUNT=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/comments --jq 'length')
+
+          # Check if the review body itself contains suggestions (top-level thread)
+          # Use the API to avoid shell injection from arbitrary review body text
+          BODY_LENGTH=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID" --jq '.body | length')
+          HAS_BODY="false"
+          if [ "$BODY_LENGTH" -gt 0 ] 2>/dev/null; then
+            HAS_BODY="true"
+          fi
+
+          REVIEW_STATE="${{ github.event.review.state }}"
+          echo "Copilot left $COMMENT_COUNT line comments in this review (state: $REVIEW_STATE, has_body: $HAS_BODY, body_length: $BODY_LENGTH)."
+
+          # Trigger fix if any of:
+          # - There are line-specific review comments
+          # - The review state is changes_requested
+          # - The review state is commented AND the body has content (top-level suggestions)
+          if [ "$COMMENT_COUNT" -gt 0 ] || [ "$REVIEW_STATE" == "changes_requested" ] || { [ "$REVIEW_STATE" == "commented" ] && [ "$HAS_BODY" == "true" ]; }; then
+            echo "Issues detected."
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+          else
+            echo "No actionable issues detected."
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+            gh pr comment "$PR_NUMBER" -R "$REPO" --body "**Auto-fix loop complete!** The Copilot Code Reviewer found no further actionable issues."
+          fi
+
+      - name: Ask Copilot to Fix Review Issues on PR
+        if: steps.loop-limit.outputs.stop == 'false' && steps.analyze.outputs.has_issues == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Mention @copilot directly on the PR so it fixes code on the
+          # existing branch. Using issue assignment would cause the SWE agent
+          # to create a NEW branch and PR, breaking the review-fix loop.
+
+          COMMENT_BODY=$(cat <<'COMMENTEOF'
+          The Copilot Code Reviewer found issues with the latest code.
+
+          @copilot Please read all review comments and suggestions on this PR and fix every issue. Apply all `suggestion` blocks exactly as written. After fixing, run:
+
+          ```bash
+          npm run lint
+          npm test
+          npm run build
+          ```
+
+          Commit and push your fixes to this PR branch. Do NOT create a new branch or pull request.
+          COMMENTEOF
+          )
+
+          gh pr comment "$PR_NUMBER" -R "$REPO" --body "$COMMENT_BODY"
+          echo "Posted @copilot fix request on PR #$PR_NUMBER"

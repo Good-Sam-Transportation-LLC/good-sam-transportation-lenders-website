@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COPILOT_PAT }}
 
       - uses: actions/setup-node@v4
         with:
@@ -54,17 +54,13 @@ jobs:
             fi
 
             echo ""
-            echo "=== Attempting automatic fix ==="
+            echo "=== Attempting automatic fix (safe, no --force) ==="
             npm audit fix 2>&1 || true
 
             echo ""
-            echo "=== Attempting force fix for breaking changes ==="
-            npm audit fix --force 2>&1 || true
-
-            echo ""
             echo "=== Validating dependency compatibility ==="
-            if npm ls --depth=0 2>&1 | grep -q "peer dep"; then
-              echo "Force fix broke dependencies — rolling back."
+            if npm ls --depth=0 2>&1 | grep -qiE "ERESOLVE|peer dep|invalid"; then
+              echo "npm audit fix broke dependencies — rolling back."
               git checkout -- package.json package-lock.json
             fi
 
@@ -85,7 +81,7 @@ jobs:
 
       - name: Commit and push fixes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -107,7 +103,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.COPILOT_PAT }}
 
       - uses: actions/setup-node@v4
         with:
@@ -120,7 +116,7 @@ jobs:
         id: alerts
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.COPILOT_PAT }}
           script: |
             let alerts = [];
             try {
@@ -188,7 +184,7 @@ jobs:
       - name: Commit and push fixes
         if: steps.alerts.outputs.result != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

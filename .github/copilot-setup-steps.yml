@@ -27,3 +27,4 @@ jobs:
           npm run typecheck || true
           npm run lint || true
           npm test || true
+          npm run build || true

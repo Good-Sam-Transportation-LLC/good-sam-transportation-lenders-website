@@ -53,3 +53,83 @@ When reviewing pull requests, prioritize the following:
 - Flag console.log statements (use console.warn/error instead)
 - Check for proper error handling in async operations
 - Verify consistent naming conventions (PascalCase components, camelCase functions)
+
+---
+
+## SWE Agent Coding Instructions
+
+When working on issues or PRs as the coding agent, follow these project conventions.
+
+### Branch & Commit Behavior
+
+- **ALWAYS push directly to the PR's existing branch** — never create a new branch or open a new PR
+- When triggered by a review comment on a PR, check out the PR's head branch, apply fixes, and push to that same branch
+- Do NOT request human review or approval — just fix the code and push the commit
+- The automated loop will re-trigger the reviewer after your push; your job is only to fix and push
+
+### Project Structure
+
+- `src/components/` — React components (section components + UI primitives in `ui/`)
+- `src/pages/` — Page components that compose sections (`Index.tsx`, `NotFound.tsx`)
+- `src/hooks/` — Custom hooks (`use-mobile.tsx`, `use-toast.ts`)
+- `src/lib/` — Utilities (`utils.ts` for `cn()`, `motion.ts` for animation helpers)
+- `src/test/` — Test setup and shared test utilities
+
+### Import Conventions
+
+Always use the `@/` alias for imports from `src/`:
+
+```ts
+import { cn } from "@/lib/utils";
+import { fadeUpProps } from "@/lib/motion";
+import { Button } from "@/components/ui/button";
+```
+
+### Component Patterns
+
+Section components follow this pattern:
+- Default function component export
+- Local data arrays defined above the component
+- Framer Motion for entrance animations using helpers from `@/lib/motion.ts`
+- Wrapped in `<section id="..." className="py-20 ...">` with `<div className="section-container">`
+
+Use `fadeUpProps(delay)` for scroll-triggered animations and `fadeUpAnimateProps(delay)` for mount animations. Use `staggerContainer` + `fadeUp` variants for staggered children.
+
+### Styling
+
+- Tailwind CSS with custom utility classes: `glass-card`, `glass-card-gold`, `section-container`, `data-mono`, `text-gold-gradient`
+- Gold accent color: `hsl(43 72% 52%)` via `text-gold`, `border-gold`, `bg-gold`
+- Fonts: `Inter` (body), `Instrument Serif` (headings), `IBM Plex Mono` (data/numbers)
+
+### Naming Conventions
+
+- **Components**: PascalCase (`HeroSection`, `SiteHeader`)
+- **Hooks**: camelCase with `use` prefix (`useIsMobile`, `useToast`)
+- **Utilities**: camelCase (`cn`, `fadeUp`)
+- **CSS classes/IDs**: kebab-case (`glass-card`, `section-container`)
+
+### Testing Requirements
+
+Every new component, hook, utility, or page MUST have a corresponding test file:
+- Place tests in `__tests__/` next to the source file (e.g., `src/components/__tests__/MyComponent.test.tsx`)
+- Use `@testing-library/react` for component tests
+- Mock Framer Motion using the Proxy pattern from existing tests
+- Mock Recharts components when testing chart sections
+
+### Validation Checklist
+
+Run these commands before committing — all must pass:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+### Commit Style
+
+Short imperative present-tense phrases:
+- `Add fleet section with vehicle table`
+- `Fix responsive layout on mobile`
+- `Update financial metrics`
