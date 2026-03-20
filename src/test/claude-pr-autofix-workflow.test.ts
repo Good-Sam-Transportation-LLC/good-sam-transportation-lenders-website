@@ -44,6 +44,12 @@ describe("Claude PR Auto-Fix workflow file structure", () => {
     expect(workflow.on.workflow_run.types).toContain("completed");
   });
 
+  it("triggers after Copilot Recursive Review Loop workflow completes", () => {
+    expect(workflow.on.workflow_run.workflows).toContain(
+      "Copilot Recursive Review Loop"
+    );
+  });
+
   it("has contents:write permission", () => {
     expect(workflow.permissions?.contents).toBe("write");
   });
@@ -81,6 +87,22 @@ describe("Claude PR Auto-Fix job configuration", () => {
     expect(waitStep.uses).toContain("actions/github-script");
     expect(waitStep.with.script).toContain("copilot");
     expect(waitStep.with.script).toContain("compareCommits");
+  });
+
+  it("wait-for-swe skips polling when triggered by Copilot Recursive Review Loop", () => {
+    const waitStep = autoFixJob.steps.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => s.id === "wait-for-swe"
+    );
+    const script: string = waitStep.with.script;
+    // The workflow name must appear in the script for the fast-path check.
+    expect(script).toContain("Copilot Recursive Review Loop");
+    // The skip logic should set proceed=true and return immediately (not wait/poll).
+    const loopIdx = script.indexOf("Copilot Recursive Review Loop");
+    const returnIdx = script.indexOf("return;", loopIdx);
+    const proceedIdx = script.indexOf("proceed", loopIdx);
+    expect(proceedIdx).toBeGreaterThan(-1);
+    expect(returnIdx).toBeGreaterThan(proceedIdx);
   });
 
   it("checks for ANTHROPIC_API_KEY before running", () => {

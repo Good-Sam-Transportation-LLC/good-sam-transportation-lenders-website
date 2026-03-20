@@ -6,7 +6,9 @@ on:
   pull_request_review_comment:
     types: [created]
   workflow_run:
-    workflows: ["Trigger Copilot Coding Agent"]
+    # NOTE: If you rename either of these workflows, update the skip check in
+    # the "Wait for Copilot SWE to finish" step below to match.
+    workflows: ["Trigger Copilot Coding Agent", "Copilot Recursive Review Loop"]
     types: [completed]
 
 permissions:
@@ -39,6 +41,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            // When triggered by the Copilot Recursive Review Loop, the loop has already
+            // completed its own review/fix cycle (commits are by github-actions[bot], not
+            // Copilot SWE). Skip the SWE polling so we don't wait until timeout.
+            const triggeringWorkflow = context.payload.workflow_run.name;
+            if (triggeringWorkflow === 'Copilot Recursive Review Loop') {
+              console.log(`Triggered by "${triggeringWorkflow}" — skipping SWE polling, proceeding immediately.`);
+              core.setOutput('proceed', 'true');
+              return;
+            }
+
             // Find the PR for this branch
             const headBranch = context.payload.workflow_run.head_branch;
             const { data: prs } = await github.rest.pulls.list({

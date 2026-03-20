@@ -1,0 +1,95 @@
+name: Copilot Recursive Review Loop
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+# Prevent parallel loop iterations on the same PR from stomping each other.
+concurrency:
+  group: copilot-loop-${{ github.event.pull_request.number || github.event.review.pull_request_url }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Stage 1 ────────────────────────────────────────────────────────────────
+  # On every push / open / reopen: ask Copilot to review the PR.
+  call-reviewer:
+    name: Request Copilot Review
+    runs-on: ubuntu-latest
+    # Skip fork PRs: COPILOT_PAT is unavailable for forks, so gh commands would fail.
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Request Copilot as reviewer
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          # Check if Copilot is already a requested reviewer to avoid a redundant API call.
+          EXISTING=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json reviewRequests \
+            --jq '[.reviewRequests[].login] | any(. == "copilot")' 2>/dev/null || echo "false")
+          if [ "$EXISTING" = "true" ]; then
+            echo "Copilot is already a requested reviewer on PR #$PR_NUMBER — skipping."
+          else
+            gh pr edit "$PR_NUMBER" --add-reviewer copilot --repo "$GH_REPO" || \
+              echo "Could not add Copilot as reviewer (Copilot coding agent may not be enabled for this repository)"
+          fi
+
+  # ── Stage 2 ────────────────────────────────────────────────────────────────
+  # When Copilot submits a review: check the circuit breaker, then ask the
+  # Copilot SWE agent to fix any remaining issues.
+  evaluate-and-fix:
+    name: Evaluate Review and Trigger SWE Fix
+    runs-on: ubuntu-latest
+    # Only run when Copilot submits a review, and only for PRs from this repo.
+    # Skip fork PRs: secrets are unavailable on forks, so gh commands would fail.
+    if: >
+      github.event_name == 'pull_request_review' &&
+      contains(github.event.review.user.login, 'copilot') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Check circuit breaker
+        id: circuit-breaker
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          MAGIC_PHRASE="<!-- copilot-swe-invocation -->"
+          MAX_LOOPS=5
+
+          # Paginate through ALL issue comments so the count is accurate even
+          # when a PR has more than 30 comments (the default GitHub page size).
+          INVOCATIONS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq "[.[] | select(.body | contains(\"$MAGIC_PHRASE\"))] | length")
+
+          echo "invocations=$INVOCATIONS" >> "$GITHUB_OUTPUT"
+
+          if [ "$INVOCATIONS" -ge "$MAX_LOOPS" ]; then
+            echo "Circuit breaker tripped: $INVOCATIONS/$MAX_LOOPS loop iterations reached. Stopping to prevent infinite loop."
+            echo "should_trigger=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Loop iteration $((INVOCATIONS + 1))/$MAX_LOOPS — proceeding to trigger SWE agent."
+            echo "should_trigger=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Copilot SWE Agent
+        if: steps.circuit-breaker.outputs.should_trigger == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          MAGIC_PHRASE="<!-- copilot-swe-invocation -->"
+          gh pr comment "$PR_NUMBER" \
+            --body "@copilot Please address the review feedback on this PR. $MAGIC_PHRASE" \
+            --repo "$GH_REPO"
