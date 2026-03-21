@@ -184,6 +184,19 @@ describe("Copilot recursive loop workflow", () => {
     const content = readText(".github/workflows/copilot-recursive-loop.yml");
     expect(content).toContain("MAX_LOOPS");
   });
+
+  it("recursive loop workflow has assignment retry with exponential backoff", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    expect(content).toContain("assignWithRetry");
+    expect(content).toContain("BACKOFF_DELAYS");
+    expect(content).toContain("MAX_RETRIES");
+  });
+
+  it("recursive loop workflow has remove-and-reassign fallback", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    expect(content).toContain("removeAssignees");
+    expect(content).toContain("remove-and-reassign fallback");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -315,5 +328,29 @@ describe("Workflow self-healing", () => {
     const content = readText(".github/scripts/generate-workflow-tests.sh");
     expect(content).toContain("GENERATED");
     expect(content).toContain(".test.ts");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group 7: Codex Review Workflow Assignment Resilience
+// ---------------------------------------------------------------------------
+describe("Codex review workflow assignment resilience", () => {
+  it("codex-review workflow has initial delay before assignment", () => {
+    const content = readText(".github/workflows/codex-review.yml");
+    expect(content).toContain("Waiting 5 seconds for GitHub to index");
+    expect(content).toContain("setTimeout(resolve, 5000)");
+  });
+
+  it("codex-review workflow has assignment retry with exponential backoff", () => {
+    const content = readText(".github/workflows/codex-review.yml");
+    expect(content).toContain("assignWithRetry");
+    expect(content).toContain("BACKOFF_DELAYS");
+    expect(content).toContain("MAX_RETRIES");
+  });
+
+  it("codex-review workflow has remove-and-reassign fallback", () => {
+    const content = readText(".github/workflows/codex-review.yml");
+    expect(content).toContain("removeAssignees");
+    expect(content).toContain("remove-and-reassign fallback");
   });
 });

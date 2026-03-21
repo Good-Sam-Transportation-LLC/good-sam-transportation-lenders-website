@@ -830,17 +830,48 @@ jobs:
             console.log('Waiting 5 seconds for GitHub to index the new issue...');
             await new Promise(resolve => setTimeout(resolve, 5000));
 
-            // 4g. Assign Copilot SWE agent via REST API
-            try {
-              await github.rest.issues.addAssignees({
-                owner, repo,
-                issue_number: issue.number,
-                assignees: ['copilot-swe-agent'],
-              });
-              console.log(`Assigned copilot-swe-agent to issue #${issue.number}`);
-            } catch (e) {
-              console.log(`Assignment failed: ${e.message}`);
+            // 4g. Assign Copilot SWE agent via REST API with retry + fallback
+            async function assignWithRetry(gh, o, r, issueNum) {
+              const MAX_RETRIES = 3;
+              const BACKOFF_DELAYS = [2000, 4000, 8000];
+              for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                  await gh.rest.issues.addAssignees({
+                    owner: o, repo: r,
+                    issue_number: issueNum,
+                    assignees: ['copilot-swe-agent'],
+                  });
+                  console.log(`Assigned copilot-swe-agent to issue #${issueNum} (attempt ${attempt + 1})`);
+                  return;
+                } catch (e) {
+                  console.log(`Assignment attempt ${attempt + 1} failed: ${e.message}`);
+                  if (attempt < MAX_RETRIES) {
+                    const delay = BACKOFF_DELAYS[attempt];
+                    console.log(`Retrying in ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                  }
+                }
+              }
+              // Fallback: remove and re-add assignee (remove-and-reassign fallback)
+              console.log('All direct assignment attempts failed. Trying remove-and-reassign fallback...');
+              try {
+                await gh.rest.issues.removeAssignees({
+                  owner: o, repo: r,
+                  issue_number: issueNum,
+                  assignees: ['copilot-swe-agent'],
+                });
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                await gh.rest.issues.addAssignees({
+                  owner: o, repo: r,
+                  issue_number: issueNum,
+                  assignees: ['copilot-swe-agent'],
+                });
+                console.log(`Fallback succeeded: re-assigned copilot-swe-agent to issue #${issueNum}`);
+              } catch (fallbackErr) {
+                console.log(`Fallback assignment also failed: ${fallbackErr.message}`);
+              }
             }
+            await assignWithRetry(github, owner, repo, issue.number);
 
             // 4i. Post tracking comment on PR (preserves circuit breaker phrase)
             await github.rest.issues.createComment({
