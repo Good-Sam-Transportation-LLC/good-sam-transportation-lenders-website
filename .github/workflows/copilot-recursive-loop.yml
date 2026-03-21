@@ -3,8 +3,6 @@ name: "Autonomous AI Loop: Review ➔ Fix"
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  pull_request_review:
-    types: [submitted]
   # Allow manual dispatch for pushes that don't trigger pull_request events
   # (e.g. commits from GITHUB_TOKEN or GitHub App tokens).
   workflow_dispatch:
@@ -25,10 +23,10 @@ permissions:
 
 jobs:
   # ==========================================================
-  # PHASE 1: Call the Copilot Code Reviewer
+  # Request review, wait for it, evaluate, and trigger SWE agent
   # ==========================================================
-  call-reviewer:
-    name: Request Copilot Review
+  review-and-fix:
+    name: Request Review ➔ Evaluate ➔ Fix
     # Run when:
     #   - pull_request: PR opened or new commits pushed (fires for PAT-based pushes)
     #   - workflow_dispatch: manually triggered with a PR number
@@ -41,6 +39,11 @@ jobs:
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    # Serialize per-PR to prevent two parallel runs capturing the same pre-review
+    # count, both detecting the same new review, and both posting duplicate fix requests.
+    concurrency:
+      group: review-fix-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || github.event.inputs.pr_number || github.run_id }}
+      cancel-in-progress: false
     steps:
       - name: Resolve PR number
         id: resolve-pr
@@ -66,53 +69,264 @@ jobs:
             fi
           fi
 
-      - name: Request Copilot Code Review
+      - name: Get current HEAD SHA
+        id: head-sha
         if: steps.resolve-pr.outputs.pr_number != ''
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
           PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Requesting code review from Copilot on PR #$PR_NUMBER..."
-          # Use the review-request API endpoint directly.
-          # gh pr edit --add-reviewer is a no-op if Copilot already submitted a review,
-          # but the API endpoint re-requests review even after a prior submission.
-          gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
-            --method POST \
-            --field "reviewers[]=copilot" \
-            || echo "Could not request review — Copilot may already be assigned."
+          SHA=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "Current HEAD SHA: $SHA"
 
-  # ==========================================================
-  # PHASE 2: Evaluate Review & Trigger SWE Agent
-  # ==========================================================
-  evaluate-and-fix:
-    name: Evaluate Review & Trigger SWE Agent
-    # Run when Copilot submits any review (the analyze step determines
-    # whether there are actionable issues worth fixing)
-    if: >
-      github.event_name == 'pull_request_review' &&
-      contains(github.event.review.user.login, 'copilot')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Log review event details
+      - name: Mark draft PR as ready for review
+        if: steps.resolve-pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+          REPO: ${{ github.repository }}
         run: |
-          echo "Reviewer: ${{ github.event.review.user.login }}"
-          echo "Review state: ${{ github.event.review.state }}"
-          echo "Review ID: ${{ github.event.review.id }}"
-          echo "PR number: ${{ github.event.pull_request.number }}"
+          # Copilot code reviewer does NOT review draft PRs.
+          # If the PR is a draft (common when created by Copilot SWE agent),
+          # mark it as ready so the review request is accepted.
+          IS_DRAFT=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.draft')
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "PR #$PR_NUMBER is a draft — marking as ready for review..."
+            gh pr ready "$PR_NUMBER" -R "$REPO" \
+              || echo "Could not mark PR as ready — may require different permissions."
+          else
+            echo "PR #$PR_NUMBER is already ready for review."
+          fi
+
+      - name: Dismiss previous Copilot review (if any) so re-request works
+        if: steps.resolve-pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # GitHub won't let you re-request a review from someone who already
+          # submitted one. The UI's "re-request review" button dismisses the
+          # old review first — we must do the same via API.
+          #
+          # IMPORTANT: Only CHANGES_REQUESTED and APPROVED reviews can be
+          # dismissed. COMMENTED reviews return HTTP 422 — skip those.
+          LATEST_REVIEW=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+            | jq -s 'flatten | map(select(.user.login == "copilot-pull-request-reviewer[bot]")) | last // empty')
+
+          if [ -n "$LATEST_REVIEW" ]; then
+            LATEST_REVIEW_ID=$(echo "$LATEST_REVIEW" | jq -r '.id // empty')
+            LATEST_REVIEW_STATE=$(echo "$LATEST_REVIEW" | jq -r '.state // empty')
+          else
+            LATEST_REVIEW_ID=""
+            LATEST_REVIEW_STATE=""
+          fi
+
+          if [ -z "$LATEST_REVIEW_ID" ]; then
+            echo "No previous Copilot review to dismiss."
+          elif [ "$LATEST_REVIEW_STATE" = "COMMENTED" ]; then
+            echo "Latest Copilot review $LATEST_REVIEW_ID has state COMMENTED — cannot be dismissed via API. Skipping."
+          else
+            echo "Dismissing previous Copilot review $LATEST_REVIEW_ID (state: $LATEST_REVIEW_STATE)..."
+            gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$LATEST_REVIEW_ID/dismissals" \
+              --method PUT \
+              --field 'message=Dismissing to re-request automated review after new commits.' \
+              || echo "Could not dismiss review $LATEST_REVIEW_ID — may already be dismissed."
+          fi
+
+      - name: Request Copilot Code Review
+        id: request-review
+        if: steps.resolve-pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Record timestamp BEFORE the request so we can filter out old reviews.
+          REQUEST_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "request_time=$REQUEST_TIME" >> $GITHUB_OUTPUT
+          echo "Review requested at: $REQUEST_TIME"
+
+          echo "Requesting code review from Copilot on PR #$PR_NUMBER..."
+
+          # First, try removing Copilot from reviewers so re-request works
+          # even when the previous review was COMMENTED (non-dismissable).
+          gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            --method DELETE \
+            --field "reviewers[]=copilot-pull-request-reviewer[bot]" 2>/dev/null \
+            || true
+
+          # Now request the review — try standard shorthand first
+          RESPONSE=$(gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            --method POST \
+            --field "reviewers[]=copilot" 2>&1) || true
+
+          REQUESTED=$(echo "$RESPONSE" | jq -r '[.requested_reviewers[]?.login // empty] | join(", ")' 2>/dev/null || echo "")
+
+          # If standard name failed, try the full bot login as fallback
+          if [ -z "$REQUESTED" ]; then
+            echo "Standard 'copilot' reviewer not accepted — retrying with full bot login..."
+            RESPONSE=$(gh api "repos/$REPO/pulls/$PR_NUMBER/requested_reviewers" \
+              --method POST \
+              --field "reviewers[]=copilot-pull-request-reviewer[bot]" 2>&1) || true
+            REQUESTED=$(echo "$RESPONSE" | jq -r '[.requested_reviewers[]?.login // empty] | join(", ")' 2>/dev/null || echo "")
+          fi
+
+          # Output whether request was accepted for downstream steps
+          if [ -n "$REQUESTED" ]; then
+            echo "Successfully requested review from: $REQUESTED"
+            echo "request_accepted=true" >> $GITHUB_OUTPUT
+          else
+            echo "request_accepted=false" >> $GITHUB_OUTPUT
+            echo "::warning::Copilot code review request was not accepted. Possible causes:"
+            echo "  - Copilot code review not enabled (Settings → Copilot → Code Review)"
+            echo "  - Repository is a fork (Copilot review may not be available on forks)"
+            echo "  - COPILOT_PAT lacks sufficient permissions"
+            echo "Will check for existing unresolved comments as fallback."
+          fi
+
+      - name: Wait for Copilot review to appear
+        id: wait-review
+        if: steps.resolve-pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.head-sha.outputs.sha }}
+          REQUEST_TIME: ${{ steps.request-review.outputs.request_time }}
+          REQUEST_ACCEPTED: ${{ steps.request-review.outputs.request_accepted }}
+        run: |
+          # Poll for a review from copilot-pull-request-reviewer[bot] whose
+          # submitted_at is AFTER REQUEST_TIME. This guarantees we never
+          # pick up stale reviews from previous iterations.
+          #
+          # If the review request wasn't accepted, use a shorter timeout —
+          # Copilot might still auto-review on synchronize events.
+          if [ "$REQUEST_ACCEPTED" = "false" ]; then
+            MAX_WAIT=60   # Only wait 1 minute for possible auto-review
+            echo "Review request was not accepted — using shorter timeout (${MAX_WAIT}s)."
+          else
+            MAX_WAIT=300  # Normal 5-minute wait
+          fi
+          INTERVAL=15   # Check every 15 seconds
+          ELAPSED=0
+
+          echo "Waiting for Copilot code review on PR #$PR_NUMBER submitted after $REQUEST_TIME..."
+
+          while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
+            sleep "$INTERVAL"
+            ELAPSED=$((ELAPSED + INTERVAL))
+
+            # Check if PR HEAD has changed (someone pushed while we're waiting)
+            CURRENT_SHA=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')
+            if [ "$CURRENT_SHA" != "$HEAD_SHA" ]; then
+              echo "PR HEAD changed ($HEAD_SHA → $CURRENT_SHA). A new workflow run will handle this. Exiting."
+              echo "found=false" >> $GITHUB_OUTPUT
+              echo "head_changed=true" >> $GITHUB_OUTPUT
+              echo "reason=head_changed" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            # Find a review from the code reviewer bot submitted AFTER our request
+            REVIEW_JSON=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+              | jq -s --arg after "$REQUEST_TIME" '
+                flatten
+                | map(select(
+                    .user.login == "copilot-pull-request-reviewer[bot]"
+                    and .state != "DISMISSED"
+                    and .submitted_at > $after
+                  ))
+                | last // empty')
+
+            if [ -n "$REVIEW_JSON" ] && [ "$REVIEW_JSON" != "null" ]; then
+              REVIEW_ID=$(echo "$REVIEW_JSON" | jq -r '.id')
+              REVIEW_STATE=$(echo "$REVIEW_JSON" | jq -r '.state')
+              SUBMITTED_AT=$(echo "$REVIEW_JSON" | jq -r '.submitted_at')
+
+              echo "New Copilot review detected! (submitted $SUBMITTED_AT, after request at $REQUEST_TIME)"
+              echo "Review ID: $REVIEW_ID, State: $REVIEW_STATE"
+              echo "found=true" >> $GITHUB_OUTPUT
+              echo "head_changed=false" >> $GITHUB_OUTPUT
+              echo "review_id=$REVIEW_ID" >> $GITHUB_OUTPUT
+              echo "review_state=$REVIEW_STATE" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            echo "[$ELAPSED/${MAX_WAIT}s] No new Copilot review yet (looking for submitted_at > $REQUEST_TIME)"
+
+          done
+
+          echo "Timed out waiting for Copilot review after ${MAX_WAIT}s."
+          echo "found=false" >> $GITHUB_OUTPUT
+          echo "head_changed=false" >> $GITHUB_OUTPUT
+          echo "reason=timeout" >> $GITHUB_OUTPUT
+
+      - name: "Fallback: check for existing unresolved review comments"
+        id: fallback-check
+        if: >
+          steps.wait-review.outputs.found == 'false' &&
+          steps.wait-review.outputs.head_changed != 'true' &&
+          steps.resolve-pr.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+        with:
+          github-token: ${{ secrets.COPILOT_PAT }}
+          script: |
+            const prNumber = parseInt('${{ steps.resolve-pr.outputs.pr_number }}', 10);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Query unresolved review threads via GraphQL
+            let unresolvedCount = 0;
+            let hasNextPage = true;
+            let cursor = null;
+
+            while (hasNextPage) {
+              const afterClause = cursor ? `, after: "${cursor}"` : '';
+              const query = `
+                query($owner: String!, $repo: String!, $prNumber: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $prNumber) {
+                      reviewThreads(first: 100${afterClause}) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes { id, isResolved }
+                      }
+                    }
+                  }
+                }
+              `;
+              const result = await github.graphql(query, { owner, repo, prNumber });
+              const threads = result.repository.pullRequest.reviewThreads;
+              unresolvedCount += threads.nodes.filter(t => !t.isResolved).length;
+              hasNextPage = threads.pageInfo.hasNextPage;
+              cursor = threads.pageInfo.endCursor;
+            }
+
+            if (unresolvedCount > 0) {
+              console.log(`Found ${unresolvedCount} existing unresolved review thread(s) — will process as fallback.`);
+              core.setOutput('has_existing_comments', 'true');
+            } else {
+              console.log('No existing unresolved review threads found.');
+              core.setOutput('has_existing_comments', 'false');
+            }
 
       - name: Check Recursive Loop Limit (Circuit Breaker)
         id: loop-limit
+        if: steps.wait-review.outputs.found == 'true'
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
           REPO: ${{ github.repository }}
-          MAX_LOOPS: 4
+          MAX_LOOPS: 100
         run: |
           # Count how many times the orchestrator has asked the SWE agent to fix issues.
           # This is a crucial failsafe to prevent infinite billing/compute loops.
           MAGIC_PHRASE="The Copilot Code Reviewer found issues"
-          INVOCATIONS=$(gh api --paginate repos/$REPO/issues/$PR_NUMBER/comments --jq "[.[] | select(.body | contains(\"$MAGIC_PHRASE\"))] | length")
+          INVOCATIONS=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            | jq -s "flatten | map(select(.body | contains(\"$MAGIC_PHRASE\"))) | length")
 
           echo "Current AI loop iterations: $INVOCATIONS / $MAX_LOOPS"
 
@@ -126,32 +340,61 @@ jobs:
 
       - name: Analyze Review Comments
         id: analyze
-        if: steps.loop-limit.outputs.stop == 'false'
+        if: steps.wait-review.outputs.found == 'true' && steps.loop-limit.outputs.stop == 'false'
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REVIEW_ID: ${{ github.event.review.id }}
+          PR_NUMBER: ${{ steps.resolve-pr.outputs.pr_number }}
+          REVIEW_ID: ${{ steps.wait-review.outputs.review_id }}
+          REVIEW_STATE: ${{ steps.wait-review.outputs.review_state }}
           REPO: ${{ github.repository }}
         run: |
           # Fetch the number of line-specific comments attached to this review
-          COMMENT_COUNT=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/comments --jq 'length')
+          # across all pages (a single review can exceed one page of comments).
+          COMMENT_COUNT=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID/comments" \
+            | jq -s 'flatten | length')
 
-          # Check if the review body itself contains suggestions (top-level thread)
-          # Use the API to avoid shell injection from arbitrary review body text
-          BODY_LENGTH=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID" --jq '.body | length')
-          HAS_BODY="false"
-          if [ "$BODY_LENGTH" -gt 0 ] 2>/dev/null; then
-            HAS_BODY="true"
+          # Check if the top-level review body appears actionable. This avoids
+          # false positives for simple praise such as "great".
+          REVIEW_BODY=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews/$REVIEW_ID" | jq -r '.body // ""')
+          REVIEW_STATE_NORM=$(printf "%s" "$REVIEW_STATE" | tr '[:upper:]' '[:lower:]')
+          BODY_NORM=$(printf "%s" "$REVIEW_BODY" | tr '[:upper:]' '[:lower:]')
+
+          # Detect "can't review" response — Copilot couldn't process the files
+          if printf "%s" "$BODY_NORM" | grep -Eq "wasn.t able to review|unable to review|could not review|can.t review"; then
+            echo "::warning::Copilot code reviewer could not review the files in this PR."
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+            gh pr comment "$PR_NUMBER" -R "$REPO" --body \
+              "**Copilot review skipped.** Copilot wasn't able to review the files in this PR (unsupported file types or repository configuration)." \
+              || true
+            exit 0
           fi
 
-          REVIEW_STATE="${{ github.event.review.state }}"
-          echo "Copilot left $COMMENT_COUNT line comments in this review (state: $REVIEW_STATE, has_body: $HAS_BODY, body_length: $BODY_LENGTH)."
+          BODY_TEXT=$(printf "%s" "$BODY_NORM" | tr -d '[:space:]')
+          BODY_CANON=$(printf "%s" "$BODY_NORM" | tr -cd '[:alnum:]')
+          HAS_ACTIONABLE_BODY="false"
+
+          if [ -n "$BODY_TEXT" ]; then
+            # Strip "no issue(s)" phrases to avoid false positives like "no issues found"
+            BODY_FILTERED=$(printf "%s" "$BODY_NORM" | sed -E 's/\<no issues?\>//g; s/\<no issues? found\>//g')
+            if printf "%s" "$BODY_FILTERED" | grep -Eq '```suggestion|changes requested|issue|bug|error|fix|must|should|needs? to|please (fix|change|update)|recommend|blocking'; then
+              case "$BODY_CANON" in
+                great|greatwork|nicework|goodwork|goodjob|lgtm|looksgood|shipit)
+                  HAS_ACTIONABLE_BODY="false"
+                  ;;
+                *)
+                  HAS_ACTIONABLE_BODY="true"
+                  ;;
+              esac
+            fi
+          fi
+
+          echo "Copilot left $COMMENT_COUNT line comments in this review (state: $REVIEW_STATE_NORM, actionable_body: $HAS_ACTIONABLE_BODY)."
 
           # Trigger fix if any of:
           # - There are line-specific review comments
           # - The review state is changes_requested
-          # - The review state is commented AND the body has content (top-level suggestions)
-          if [ "$COMMENT_COUNT" -gt 0 ] || [ "$REVIEW_STATE" == "changes_requested" ] || { [ "$REVIEW_STATE" == "commented" ] && [ "$HAS_BODY" == "true" ]; }; then
+          # - The review state is commented AND the body appears actionable
+          if [ "$COMMENT_COUNT" -gt 0 ] || [ "$REVIEW_STATE_NORM" == "changes_requested" ] || { [ "$REVIEW_STATE_NORM" == "commented" ] && [ "$HAS_ACTIONABLE_BODY" == "true" ]; }; then
             echo "Issues detected."
             echo "has_issues=true" >> $GITHUB_OUTPUT
           else
@@ -160,32 +403,450 @@ jobs:
             gh pr comment "$PR_NUMBER" -R "$REPO" --body "**Auto-fix loop complete!** The Copilot Code Reviewer found no further actionable issues."
           fi
 
-      - name: Ask Copilot to Fix Review Issues on PR
-        if: steps.loop-limit.outputs.stop == 'false' && steps.analyze.outputs.has_issues == 'true'
+      - name: Auto-resolve threads with applied suggestions
+        if: >
+          (steps.wait-review.outputs.found == 'true' && steps.loop-limit.outputs.stop == 'false' && steps.analyze.outputs.has_issues == 'true') ||
+          steps.fallback-check.outputs.has_existing_comments == 'true'
+        uses: actions/github-script@v7
         env:
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REVIEW_URL: ${{ github.event.review.html_url }}
-          REPO: ${{ github.repository }}
-        run: |
-          # Mention @copilot directly on the PR so it fixes code on the
-          # existing branch. Using issue assignment would cause the SWE agent
-          # to create a NEW branch and PR, breaking the review-fix loop.
+          HEAD_SHA: ${{ steps.head-sha.outputs.sha }}
+        with:
+          github-token: ${{ secrets.COPILOT_PAT }}
+          script: |
+            const prNumber = parseInt('${{ steps.resolve-pr.outputs.pr_number }}', 10);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const headSha = process.env.HEAD_SHA;
 
-          COMMENT_BODY=$(cat <<'COMMENTEOF'
-          The Copilot Code Reviewer found issues with the latest code.
+            // ──────────────────────────────────────────────────────────
+            // 1. Fetch all unresolved review threads (paginated GraphQL)
+            // ──────────────────────────────────────────────────────────
+            let allThreads = [];
+            let hasNextPage = true;
+            let cursor = null;
 
-          @copilot Please read all review comments and suggestions on this PR and fix every issue. Apply all `suggestion` blocks exactly as written. After fixing, run:
+            while (hasNextPage) {
+              const afterClause = cursor ? `, after: "${cursor}"` : '';
+              const query = `
+                query($owner: String!, $repo: String!, $prNumber: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $prNumber) {
+                      reviewThreads(first: 100${afterClause}) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                          id
+                          isResolved
+                          isOutdated
+                          comments(first: 100) {
+                            nodes { id, body, path, line, startLine }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              const result = await github.graphql(query, { owner, repo, prNumber });
+              const threads = result.repository.pullRequest.reviewThreads;
+              allThreads.push(...threads.nodes);
+              hasNextPage = threads.pageInfo.hasNextPage;
+              cursor = threads.pageInfo.endCursor;
+            }
 
-          ```bash
-          npm run lint
-          npm test
-          npm run build
-          ```
+            const unresolvedThreads = allThreads.filter(t => !t.isResolved);
+            console.log(`Found ${unresolvedThreads.length} unresolved thread(s) to check.`);
 
-          Commit and push your fixes to this PR branch. Do NOT create a new branch or pull request.
-          COMMENTEOF
-          )
+            if (unresolvedThreads.length === 0) return;
 
-          gh pr comment "$PR_NUMBER" -R "$REPO" --body "$COMMENT_BODY"
-          echo "Posted @copilot fix request on PR #$PR_NUMBER"
+            // ──────────────────────────────────────────────────────────
+            // 2. Helpers
+            // ──────────────────────────────────────────────────────────
+            const suggestionRegex = /```suggestion\s*\n([\s\S]*?)```/g;
+
+            function extractSuggestions(body) {
+              const suggestions = [];
+              let match;
+              while ((match = suggestionRegex.exec(body)) !== null) {
+                suggestions.push(match[1]);
+              }
+              suggestionRegex.lastIndex = 0;
+              return suggestions.length > 0 ? suggestions : null;
+            }
+
+            function normalize(str) {
+              return str.replace(/[ \t]+$/gm, '').replace(/\r\n/g, '\n').trimEnd();
+            }
+
+            // Cache file contents to avoid redundant API calls
+            const fileCache = new Map();
+
+            async function getFileContent(filePath) {
+              if (fileCache.has(filePath)) return fileCache.get(filePath);
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  owner, repo, path: filePath, ref: headSha,
+                });
+                const content = Buffer.from(data.content, 'base64').toString('utf-8');
+                fileCache.set(filePath, content);
+                return content;
+              } catch (e) {
+                fileCache.set(filePath, null);
+                return null;
+              }
+            }
+
+            // ──────────────────────────────────────────────────────────
+            // 3. Check each unresolved thread and resolve if applied
+            //
+            // IMPORTANT: After Copilot SWE pushes fixes, previous review
+            // comments become "outdated" — GitHub sets `line` and `startLine`
+            // to null. So we CANNOT rely on line numbers. Instead, search
+            // the entire file content for the suggestion text.
+            // ──────────────────────────────────────────────────────────
+            let resolvedCount = 0;
+            let skippedNoSuggestion = 0;
+            let skippedNoFile = 0;
+            let checkedCount = 0;
+
+            for (const thread of unresolvedThreads) {
+              const firstComment = thread.comments.nodes[0];
+              if (!firstComment || !firstComment.body || !firstComment.path) continue;
+
+              const suggestions = extractSuggestions(firstComment.body);
+              if (!suggestions) {
+                skippedNoSuggestion++;
+                continue; // Skip free-text comments
+              }
+
+              checkedCount++;
+              const fileContent = await getFileContent(firstComment.path);
+              if (!fileContent) {
+                skippedNoFile++;
+                console.log(`Skipped thread ${thread.id}: file ${firstComment.path} not found at HEAD.`);
+                continue;
+              }
+
+              const normalizedFile = normalize(fileContent);
+
+              // Check if ANY suggestion in the comment appears in the current file.
+              // We search the full file because line numbers become null on
+              // outdated comments (after new commits are pushed).
+              const matched = suggestions.some(suggestion => {
+                const trimmed = suggestion.trimEnd();
+                if (!trimmed) return false; // Skip empty suggestions (line deletions)
+                return normalizedFile.includes(normalize(trimmed));
+              });
+
+              if (matched) {
+                try {
+                  await github.graphql(`
+                    mutation($threadId: ID!) {
+                      resolveReviewThread(input: { threadId: $threadId }) {
+                        thread { isResolved }
+                      }
+                    }
+                  `, { threadId: thread.id });
+                  resolvedCount++;
+                  const loc = firstComment.startLine || firstComment.line || '?';
+                  console.log(`Resolved thread ${thread.id} (${firstComment.path}:${loc} — suggestion found in file)`);
+                } catch (e) {
+                  console.log(`Failed to resolve thread ${thread.id}: ${e.message}`);
+                }
+              } else {
+                const loc = firstComment.startLine || firstComment.line || 'outdated';
+                console.log(`Thread ${thread.id} NOT matched (${firstComment.path}:${loc})`);
+              }
+            }
+
+            console.log(`Auto-resolved ${resolvedCount} of ${unresolvedThreads.length} unresolved thread(s) (checked: ${checkedCount}, skipped: ${skippedNoSuggestion} free-text, ${skippedNoFile} missing files).`);
+
+      - name: Collect unresolved comments and create temp issue for Copilot
+        if: >
+          (steps.wait-review.outputs.found == 'true' && steps.loop-limit.outputs.stop == 'false' && steps.analyze.outputs.has_issues == 'true') ||
+          steps.fallback-check.outputs.has_existing_comments == 'true'
+        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          REVIEW_ID: ${{ steps.wait-review.outputs.review_id }}
+        with:
+          github-token: ${{ secrets.COPILOT_PAT }}
+          script: |
+            const prNumber = parseInt('${{ steps.resolve-pr.outputs.pr_number }}', 10);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // ──────────────────────────────────────────────────────────
+            // 1. Collect ALL unresolved review threads (paginated GraphQL)
+            // ──────────────────────────────────────────────────────────
+            let allThreads = [];
+            let hasNextPage = true;
+            let cursor = null;
+
+            while (hasNextPage) {
+              const afterClause = cursor ? `, after: "${cursor}"` : '';
+              const query = `
+                query($owner: String!, $repo: String!, $prNumber: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $prNumber) {
+                      reviewThreads(first: 100${afterClause}) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                          id
+                          isResolved
+                          isOutdated
+                          comments(first: 100) {
+                            nodes {
+                              id
+                              body
+                              path
+                              line
+                              startLine
+                              author { login }
+                              diffHunk
+                              createdAt
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+              const result = await github.graphql(query, { owner, repo, prNumber });
+              const threads = result.repository.pullRequest.reviewThreads;
+              allThreads.push(...threads.nodes);
+              hasNextPage = threads.pageInfo.hasNextPage;
+              cursor = threads.pageInfo.endCursor;
+            }
+
+            // Keep only unresolved threads (include outdated — they may still
+            // have valid suggestions the SWE agent never applied)
+            const unresolvedThreads = allThreads.filter(t => !t.isResolved);
+
+            // ──────────────────────────────────────────────────────────
+            // 2. Also fetch ALL review comments via REST as fallback
+            //    for orphaned comments not in any GraphQL thread
+            // ──────────────────────────────────────────────────────────
+            const allReviewComments = await github.paginate(
+              github.rest.pulls.listReviewComments, {
+                owner, repo,
+                pull_number: prNumber,
+                per_page: 100,
+              }
+            );
+
+            // Build set of comment IDs covered by GraphQL threads
+            const threadCommentIds = new Set();
+            for (const t of allThreads) {
+              for (const c of t.comments.nodes) {
+                if (c.id) threadCommentIds.add(c.id);
+              }
+            }
+
+            // Find REST comments not in any thread
+            const orphanedComments = allReviewComments.filter(
+              c => !threadCommentIds.has(c.node_id)
+            );
+
+            // ──────────────────────────────────────────────────────────
+            // 3. Build a detailed fix list for the SWE agent
+            // ──────────────────────────────────────────────────────────
+            const fixItems = [];
+            const processedIds = new Set();
+
+            // Walk ALL comments in each unresolved thread
+            for (const thread of unresolvedThreads) {
+              for (const comment of thread.comments.nodes) {
+                if (!comment.body || !comment.path) continue;
+                if (processedIds.has(comment.id)) continue;
+                processedIds.add(comment.id);
+
+                const startLine = comment.startLine || comment.line || '?';
+                const endLine = comment.line || '?';
+                const location = startLine === endLine
+                  ? `line ${endLine}`
+                  : `lines ${startLine}–${endLine}`;
+
+                fixItems.push(
+                  `### ${comment.path} (${location})\n` +
+                  `**Author:** ${comment.author?.login || 'unknown'}\n\n` +
+                  `${comment.body}`
+                );
+              }
+            }
+
+            // Add orphaned REST comments
+            for (const rc of orphanedComments) {
+              if (processedIds.has(rc.node_id)) continue;
+              processedIds.add(rc.node_id);
+
+              const line = rc.line || rc.original_line || '?';
+              const startLine = rc.start_line || rc.original_start_line || line;
+              const location = startLine === line
+                ? `line ${line}`
+                : `lines ${startLine}–${line}`;
+
+              fixItems.push(
+                `### ${rc.path} (${location})\n` +
+                `**Author:** ${rc.user?.login || 'unknown'}\n\n` +
+                `${rc.body}`
+              );
+            }
+
+            console.log(`Collected ${fixItems.length} unresolved comment(s) across ${unresolvedThreads.length} thread(s) and ${orphanedComments.length} orphaned comment(s).`);
+
+            if (fixItems.length === 0) {
+              // No inline review threads found, but has_issues=true (body-only review).
+              // Fetch the review body and include it so Copilot can still act on it.
+              const reviewId = process.env.REVIEW_ID ? parseInt(process.env.REVIEW_ID, 10) : null;
+              if (reviewId !== null && isNaN(reviewId)) {
+                console.log('Invalid REVIEW_ID — skipping body fallback.');
+              } else if (reviewId) {
+                const { data: review } = await github.rest.pulls.getReview({
+                  owner, repo, pull_number: prNumber, review_id: reviewId,
+                });
+                if (review.body) {
+                  fixItems.push(
+                    `### Review body feedback\n` +
+                    `**Author:** ${review.user?.login || 'unknown'}\n\n` +
+                    `${review.body}`
+                  );
+                  console.log('No inline threads found — using top-level review body as fix item.');
+                }
+              }
+              // Close any existing open temp issues for this PR.
+              // Done before the early return so issues are closed even when
+              // all review comments have been resolved (fixItems is empty).
+              const { data: existingIssues } = await github.rest.issues.listForRepo({
+                owner, repo,
+                labels: 'copilot-autofix',
+                state: 'open',
+                per_page: 20,
+              });
+              for (const existing of existingIssues) {
+                if (existing.title.includes(`[Auto-Fix PR #${prNumber}]`)) {
+                  const reason = fixItems.length === 0
+                    ? 'All review comments have been resolved.'
+                    : 'Superseded by new iteration of the review-fix loop.';
+                  await github.rest.issues.update({
+                    owner, repo, issue_number: existing.number,
+                    state: 'closed',
+                    state_reason: fixItems.length === 0 ? 'completed' : 'not_planned',
+                  });
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: existing.number,
+                    body: reason,
+                  });
+                  console.log(`Closed previous temp issue #${existing.number}: ${reason}`);
+                }
+              }
+
+              if (fixItems.length === 0) {
+                console.log('No actionable comments found — all resolved, no new issue needed.');
+                return;
+              }
+            }
+
+            // ──────────────────────────────────────────────────────────
+            // 4. Create temporary issue assigned to Copilot SWE agent
+            // ──────────────────────────────────────────────────────────
+
+            // 4b. Ensure the copilot-autofix label exists
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: 'copilot-autofix' });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner, repo,
+                  name: 'copilot-autofix',
+                  color: 'D4A017',
+                  description: 'Temporary issue for Copilot SWE agent auto-fix loop',
+                });
+                console.log('Created copilot-autofix label.');
+              }
+            }
+
+            // 4c. Get PR branch name
+            const { data: prData } = await github.rest.pulls.get({
+              owner, repo, pull_number: prNumber,
+            });
+            const branchName = prData.head.ref;
+
+            // 4d. Build issue title and body
+            const issueTitle = `[Auto-Fix PR #${prNumber}] Fix ${fixItems.length} unresolved review comment(s)`;
+            const issueBody = [
+              '## Context',
+              '',
+              'This is an automatically generated issue from the Copilot review loop.',
+              `**Pull Request:** #${prNumber}`,
+              `**Branch:** \`${branchName}\``,
+              '',
+              '## Instructions',
+              '',
+              `> **CRITICAL: Do NOT create a new branch or new PR.**`,
+              '',
+              `Check out the existing branch and push fixes to it:`,
+              '',
+              '```bash',
+              `git fetch origin ${branchName}`,
+              `git checkout ${branchName}`,
+              '```',
+              '',
+              `Fix **all ${fixItems.length} unresolved review comments** listed below.`,
+              'Apply all `suggestion` blocks exactly as written. For free-text comments, implement the requested change.',
+              '',
+              'Run validation before committing:',
+              '',
+              '```bash',
+              'npm run lint',
+              'npm test',
+              'npm run build',
+              '```',
+              '',
+              `Commit and push your fixes directly to branch \`${branchName}\`. Do NOT open a new pull request.`,
+              '',
+              '---',
+              '',
+              '## All unresolved review comments',
+              '',
+              fixItems.join('\n\n---\n\n'),
+            ].join('\n');
+
+            // 4e. Create the temp issue
+            const { data: issue } = await github.rest.issues.create({
+              owner, repo,
+              title: issueTitle,
+              body: issueBody,
+              labels: ['copilot-autofix'],
+            });
+            console.log(`Created temp issue #${issue.number}: ${issueTitle}`);
+
+            // 4f. Wait for GitHub to fully index the issue before assigning.
+            // Without this delay, the assignment event may not trigger the
+            // SWE agent — the issue isn't ready to receive agent assignments
+            // immediately after creation. This is the root cause of needing
+            // to manually remove and re-add copilot as assignee.
+            console.log('Waiting 5 seconds for GitHub to index the new issue...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+
+            // 4g. Assign Copilot SWE agent via REST API
+            try {
+              await github.rest.issues.addAssignees({
+                owner, repo,
+                issue_number: issue.number,
+                assignees: ['copilot-swe-agent'],
+              });
+              console.log(`Assigned copilot-swe-agent to issue #${issue.number}`);
+            } catch (e) {
+              console.log(`Assignment failed: ${e.message}`);
+            }
+
+            // 4i. Post tracking comment on PR (preserves circuit breaker phrase)
+            await github.rest.issues.createComment({
+              owner, repo,
+              issue_number: prNumber,
+              body: `The Copilot Code Reviewer found issues with the latest code.\n\nCreated tracking issue #${issue.number} for automated fix.\nSee: ${issue.html_url}`,
+            });
+
+            console.log(`Posted tracking comment on PR #${prNumber}, referencing issue #${issue.number}`);

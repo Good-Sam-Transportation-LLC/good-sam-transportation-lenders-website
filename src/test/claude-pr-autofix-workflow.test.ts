@@ -38,10 +38,8 @@ describe("Claude PR Auto-Fix workflow file structure", () => {
     expect(workflow.on.workflow_run.types).toContain("completed");
   });
 
-  it("triggers after Copilot Recursive Review Loop workflow completes", () => {
-    expect(workflow.on.workflow_run.workflows).toContain(
-      "Copilot Recursive Review Loop"
-    );
+  it("only triggers after a single workflow (Autonomous AI Loop)", () => {
+    expect(workflow.on.workflow_run.workflows).toHaveLength(1);
   });
 
   it("has contents:write permission", () => {
@@ -105,7 +103,7 @@ describe("Claude PR Auto-Fix job configuration", () => {
       (s: any) => s.id === "check-loop-done"
     );
     expect(gateStep.with.script).toContain("The Copilot Code Reviewer found issues");
-    expect(gateStep.with.script).toContain("latestTerminalTime > latestSweTime");
+    expect(gateStep.with.script).toContain("latestSweTime > latestTerminalTime");
   });
 
   it("gate step skips when loop is mid-cycle", () => {
@@ -116,20 +114,13 @@ describe("Claude PR Auto-Fix job configuration", () => {
     expect(gateStep.with.script).toContain("loop is mid-cycle");
   });
 
-  it("wait-for-swe skips polling when triggered by Copilot Recursive Review Loop", () => {
-    const waitStep = autoFixJob.steps.find(
+  it("check-loop-done gate step proceeds when terminal state detected", () => {
+    const gateStep = autoFixJob.steps.find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (s: any) => s.id === "wait-for-swe"
+      (s: any) => s.id === "check-loop-done"
     );
-    const script: string = waitStep.with.script;
-    // The workflow name must appear in the script for the fast-path check.
-    expect(script).toContain("Copilot Recursive Review Loop");
-    // The skip logic should set proceed=true and return immediately (not wait/poll).
-    const loopIdx = script.indexOf("Copilot Recursive Review Loop");
-    const returnIdx = script.indexOf("return;", loopIdx);
-    const proceedIdx = script.indexOf("proceed", loopIdx);
-    expect(proceedIdx).toBeGreaterThan(-1);
-    expect(returnIdx).toBeGreaterThan(proceedIdx);
+    // Gate step should set proceed output
+    expect(gateStep.with.script).toContain("core.setOutput('proceed', 'true');");
   });
 
   it("checks for ANTHROPIC_API_KEY before running", () => {

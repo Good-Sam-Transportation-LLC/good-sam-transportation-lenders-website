@@ -185,33 +185,84 @@ jobs:
             bash .github/scripts/push-with-scan-wait.sh
           fi
 
-      - name: Trigger Copilot SWE Agent to address remaining review threads
+      - name: Create temp issue for Copilot SWE Agent to fix remaining threads
         if: steps.check-suggestions.outputs.has_suggestions == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.COPILOT_PAT }}
           script: |
             const prNumber = context.payload.pull_request.number;
-            // Remove first to force a fresh assignment event
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Ensure the copilot-autofix label exists
             try {
-              await github.rest.issues.removeAssignees({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                assignees: ['copilot'],
-              });
-            } catch (error) {
-              console.log(`Could not remove Copilot coding agent assignment: ${error.message}`);
+              await github.rest.issues.getLabel({ owner, repo, name: 'copilot-autofix' });
+            } catch (e) {
+              if (e.status === 404) {
+                await github.rest.issues.createLabel({
+                  owner, repo,
+                  name: 'copilot-autofix',
+                  color: 'D4A017',
+                  description: 'Temporary issue for Copilot SWE agent auto-fix loop',
+                });
+              }
             }
-            // Re-add to trigger the SWE agent to fix remaining unresolved review threads
+
+            // Get PR branch name
+            const { data: prData } = await github.rest.pulls.get({
+              owner, repo, pull_number: prNumber,
+            });
+            const branchName = prData.head.ref;
+
+            // Create temp issue
+            const issueTitle = `[Auto-Fix PR #${prNumber}] Fix remaining review threads after Codex`;
+            const issueBody = [
+              '## Context',
+              '',
+              'This issue was created after Codex applied review suggestions.',
+              'There are remaining unresolved review threads that need fixing.',
+              `**Pull Request:** #${prNumber}`,
+              `**Branch:** \`${branchName}\``,
+              '',
+              '## Instructions',
+              '',
+              '> **CRITICAL: Do NOT create a new branch or new PR.**',
+              '',
+              '```bash',
+              `git fetch origin ${branchName}`,
+              `git checkout ${branchName}`,
+              '```',
+              '',
+              `Review and fix all remaining unresolved review threads on PR #${prNumber}.`,
+              '',
+              'Run validation before committing:',
+              '',
+              '```bash',
+              'npm run lint',
+              'npm test',
+              'npm run build',
+              '```',
+              '',
+              `Push your fixes directly to branch \`${branchName}\`. Do NOT open a new pull request.`,
+            ].join('\n');
+
+            const { data: issue } = await github.rest.issues.create({
+              owner, repo,
+              title: issueTitle,
+              body: issueBody,
+              labels: ['copilot-autofix'],
+            });
+            console.log(`Created temp issue #${issue.number} for post-Codex fixes on PR #${prNumber}`);
+
+            // Assign Copilot SWE agent via REST API
             try {
               await github.rest.issues.addAssignees({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                assignees: ['copilot'],
+                owner, repo,
+                issue_number: issue.number,
+                assignees: ['copilot-swe-agent'],
               });
-              console.log(`Triggered Copilot SWE Agent on PR #${prNumber} to address remaining review threads after Codex`);
-            } catch (error) {
-              console.log(`Could not trigger Copilot SWE Agent: ${error.message}`);
+              console.log(`Assigned copilot-swe-agent to issue #${issue.number}`);
+            } catch (e) {
+              console.log(`Assignment failed: ${e.message}`);
             }

@@ -356,8 +356,9 @@ This repository uses GitHub Copilot for automated code review and issue resoluti
 - **Phase 2 (evaluate-and-fix)**: When Copilot submits a non-approved review, the workflow:
   1. Checks a **circuit breaker** (MAX_LOOPS=4) to prevent infinite loops
   2. Analyzes the review for line comments or requested changes
-  3. Posts a `@copilot` mention (using `COPILOT_PAT` secret) to wake the Copilot SWE Agent
+  3. Creates a temporary issue (labeled `copilot-autofix`) assigned to `@copilot` to trigger the SWE Agent
 - **Recursion**: The SWE Agent fixes code and pushes a commit → triggers Phase 1 again → loop continues until clean or limit reached
+- **Cleanup**: Stale/orphaned temp issues are auto-closed by `cleanup-temp-issues.yml` (runs every 6h and on PR close)
 - Every review comment must include a `suggestion` block with a fix (no advisory-only comments)
 - Configured via `.github/copilot-instructions.md`
 

@@ -67,6 +67,15 @@ When working on issues or PRs as the coding agent, follow these project conventi
 - Do NOT request human review or approval — just fix the code and push the commit
 - The automated loop will re-trigger the reviewer after your push; your job is only to fix and push
 
+### Issue-Triggered Work
+
+When triggered via an issue with `[Auto-Fix PR #NNN]` in the title:
+- The issue body contains the PR number and branch name — read them carefully
+- Check out the PR's head branch: `git fetch origin <branch> && git checkout <branch>`
+- Apply all fixes described in the issue body
+- Push directly to the PR branch — do NOT create a new branch or PR
+- After pushing, the issue will be closed automatically
+
 ### Project Structure
 
 - `src/components/` — React components (section components + UI primitives in `ui/`)

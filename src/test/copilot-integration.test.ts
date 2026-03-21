@@ -55,6 +55,12 @@ describe("Copilot code review instructions", () => {
     const content = readText(".github/copilot-instructions.md");
     expect(content.toLowerCase()).toContain("no advisory-only comments");
   });
+
+  it("Copilot instructions include Issue-Triggered Work section", () => {
+    const content = readText(".github/copilot-instructions.md");
+    expect(content).toContain("Issue-Triggered Work");
+    expect(content).toContain("[Auto-Fix PR #NNN]");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -135,28 +141,32 @@ describe("Copilot recursive loop workflow", () => {
     expect(fs.existsSync(path.join(ROOT, ".github/workflows/copilot-recursive-loop.yml"))).toBe(true);
   });
 
-  it("recursive loop workflow triggers on pull_request and pull_request_review", () => {
+  it("recursive loop workflow triggers on pull_request and workflow_run", () => {
     const content = readText(".github/workflows/copilot-recursive-loop.yml");
     const parsed = parse(content);
     expect(parsed.on).toHaveProperty("pull_request");
-    expect(parsed.on).toHaveProperty("pull_request_review");
+    expect(parsed.on).toHaveProperty("workflow_run");
   });
 
-  it("recursive loop workflow has call-reviewer and evaluate-and-fix jobs", () => {
+  it("recursive loop workflow uses polling instead of pull_request_review trigger", () => {
     const content = readText(".github/workflows/copilot-recursive-loop.yml");
     const parsed = parse(content);
-    expect(parsed.jobs).toHaveProperty("call-reviewer");
-    expect(parsed.jobs).toHaveProperty("evaluate-and-fix");
+    // No longer relies on pull_request_review events (Copilot code reviewer bot
+    // doesn't fire them), uses in-job polling instead
+    expect(parsed.on).not.toHaveProperty("pull_request_review");
   });
 
-  it("evaluate-and-fix job runs for any Copilot review", () => {
+  it("recursive loop workflow has a single review-and-fix job", () => {
     const content = readText(".github/workflows/copilot-recursive-loop.yml");
     const parsed = parse(content);
-    const job = parsed.jobs["evaluate-and-fix"];
-    const condition = String(job.if);
-    expect(condition).toContain("copilot");
-    // No longer filters by review state at the job level
-    expect(condition).not.toContain("approved");
+    expect(parsed.jobs).toHaveProperty("review-and-fix");
+    expect(Object.keys(parsed.jobs)).toHaveLength(1);
+  });
+
+  it("review-and-fix job polls for copilot-pull-request-reviewer[bot] reviews", () => {
+    const content = readText(".github/workflows/copilot-recursive-loop.yml");
+    expect(content).toContain("copilot-pull-request-reviewer[bot]");
+    expect(content).toContain("Wait for Copilot review");
   });
 
   it("recursive loop workflow has pull-requests write permission", () => {

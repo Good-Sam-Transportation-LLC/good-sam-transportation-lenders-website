@@ -1,0 +1,93 @@
+name: Cleanup Temporary Auto-Fix Issues
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  pull_request:
+    types: [closed]
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  cleanup:
+    name: Close stale copilot-autofix issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup temp issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const STALE_HOURS = 2;
+
+            // For pull_request:closed events, only clean up issues for that PR
+            const targetPR = context.eventName === 'pull_request'
+              ? context.payload.pull_request.number
+              : null;
+
+            // Fetch all open issues with copilot-autofix label
+            const { data: openIssues } = await github.rest.issues.listForRepo({
+              owner, repo,
+              labels: 'copilot-autofix',
+              state: 'open',
+              per_page: 100,
+            });
+
+            for (const issue of openIssues) {
+              // issues.listForRepo returns both issues and PRs; skip PR items
+              if (issue.pull_request) continue;
+              // issues.listForRepo returns both issues and PRs; skip PR items
+              if (issue.pull_request) continue;
+              const prMatch = issue.title.match(/\[Auto-Fix PR #(\d+)\]/);
+              if (!prMatch) continue;
+
+              const prNumber = parseInt(prMatch[1], 10);
+
+              // If targeting a specific PR, skip issues for other PRs
+              if (targetPR && prNumber !== targetPR) continue;
+
+              let shouldClose = false;
+              let reason = '';
+
+              // Check if associated PR is closed/merged
+              try {
+                const { data: pr } = await github.rest.pulls.get({
+                  owner, repo, pull_number: prNumber,
+                });
+                if (pr.state === 'closed') {
+                  shouldClose = true;
+                  reason = pr.merged_at
+                    ? `PR #${prNumber} was merged`
+                    : `PR #${prNumber} was closed`;
+                }
+              } catch (e) {
+                shouldClose = true;
+                reason = `PR #${prNumber} not found`;
+              }
+
+              // Check age-based staleness
+              if (!shouldClose) {
+                const ageHours = (Date.now() - new Date(issue.created_at).getTime()) / 3600000;
+                if (ageHours > STALE_HOURS) {
+                  shouldClose = true;
+                  reason = `Issue is ${ageHours.toFixed(1)} hours old (limit: ${STALE_HOURS}h)`;
+                }
+              }
+
+              if (shouldClose) {
+                await github.rest.issues.update({
+                  owner, repo, issue_number: issue.number,
+                  state: 'closed',
+                  state_reason: 'not_planned',
+                });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: `Closed automatically during cleanup: ${reason}.`,
+                });
+                console.log(`Closed temp issue #${issue.number}: ${reason}`);
+              }
+            }

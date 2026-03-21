@@ -237,31 +237,32 @@ describe("codex-review workflow", () => {
       expect(permissions["issues"]).toBe("write");
     });
 
-    it("has a final step to trigger Copilot SWE Agent after Codex commits", () => {
+    it("has a final step to create temp issue for Copilot SWE Agent after Codex commits", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["codex-review"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
-      const sweStep = steps.find(s => s.name === "Trigger Copilot SWE Agent to address remaining review threads");
+      const sweStep = steps.find(s => s.name === "Create temp issue for Copilot SWE Agent to fix remaining threads");
       expect(sweStep).toBeDefined();
       expect(sweStep!.uses).toBe("actions/github-script@v7");
     });
 
-    it("Copilot SWE trigger step removes and re-adds copilot assignment", () => {
+    it("Copilot SWE trigger step creates temp issue and assigns copilot-swe-agent via REST API", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["codex-review"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
-      const sweStep = steps.find(s => s.name === "Trigger Copilot SWE Agent to address remaining review threads");
+      const sweStep = steps.find(s => s.name === "Create temp issue for Copilot SWE Agent to fix remaining threads");
       const script = String((sweStep!.with as Record<string, unknown>).script);
-      expect(script).toContain("removeAssignees");
+      expect(script).toContain("issues.create");
       expect(script).toContain("addAssignees");
-      expect(script).toContain("'copilot'");
+      expect(script).toContain("copilot-swe-agent");
+      expect(script).toContain("copilot-autofix");
     });
 
     it("Copilot SWE trigger step is gated on has_suggestions output", () => {
       const jobs = workflow.jobs as Record<string, unknown>;
       const job = jobs["codex-review"] as Record<string, unknown>;
       const steps = job.steps as Array<Record<string, unknown>>;
-      const sweStep = steps.find(s => s.name === "Trigger Copilot SWE Agent to address remaining review threads");
+      const sweStep = steps.find(s => s.name === "Create temp issue for Copilot SWE Agent to fix remaining threads");
       expect(String(sweStep!.if)).toContain("has_suggestions");
       expect(String(sweStep!.if)).toContain("true");
     });
